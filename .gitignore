@@ -1,0 +1,9 @@
+os-lib/install/
+os-lib/src/
+pki/out/
+*.log
+*.keys
+.claude/
+.vscode/
+client
+server
