@@ -20,7 +20,8 @@ fi
 resolve_vm_config quic
 
 MODE="${1:-classical}"
-SERVER_IP="${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}"
+SERVER_IP="${NLB_HOST:-${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}}"
+export VM2_IP="$SERVER_IP"
 
 _STOP=0
 cleanup() {

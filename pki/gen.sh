@@ -110,14 +110,9 @@ if [[ "$PROTO" == "ipsec" || "$PROTO" == "all" ]]; then
     fi
 fi
 
-# BASE_CNF holds the SAN-substituted cnf for the protocol currently being generated.
-# set_proto_vm rebuilds it from that protocol's own VM variables; there is no shared
-# default. Certs for each protocol carry that protocol's vm2 IP and host in the SAN.
 BASE_CNF="$(mktemp --suffix=.cnf)"
 trap 'rm -f "$BASE_CNF"' EXIT
 
-# set_proto_vm <proto> — load <PROTO>_VM1_IP / <PROTO>_VM2_IP / <PROTO>_VM2_HOST into
-# VM1_IP / VM2_IP / VM2_HOST and rebuild BASE_CNF with that protocol's SAN values.
 set_proto_vm() {
     local proto="$1" p
     p="$(printf '%s' "$proto" | tr '[:lower:]' '[:upper:]')"
@@ -129,6 +124,9 @@ set_proto_vm() {
         -e "s|^IP\.1.*|IP.1  = ${VM2_IP}|" \
         -e "s|^DNS\.1.*|DNS.1 = ${VM2_HOST}|" \
         "${REPO_ROOT}/pki/ca.cnf" > "$BASE_CNF"
+    if [[ -n "${NLB_HOST:-}" ]] && [[ "$proto" == "tls" || "$proto" == "mtls" || "$proto" == "quic" ]]; then
+        sed -i "/^DNS\.1/a DNS.2 = ${NLB_HOST}" "$BASE_CNF"
+    fi
 }
 
 # init_ca <ca_dir>

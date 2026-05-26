@@ -23,7 +23,7 @@ cleanup() {
         "pkill -f 's_server.*${MTLS_PORT}' 2>/dev/null || true" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
-SERVER_IP="${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}"
+SERVER_IP="${NLB_HOST:-${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}}"
 
 source "${REPO_ROOT}/protocols/mtls/config.sh"
 PROTO_TAG="mtls/${MODE}"

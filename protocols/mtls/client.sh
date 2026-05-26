@@ -11,7 +11,7 @@ source "${REPO_ROOT}/orchestrator/common.sh"
 resolve_vm_config mtls
 
 MODE="${1:-classical}"
-SERVER_IP="${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}"
+SERVER_IP="${NLB_HOST:-${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}}"
 
 source "${REPO_ROOT}/protocols/mtls/config.sh"
 
