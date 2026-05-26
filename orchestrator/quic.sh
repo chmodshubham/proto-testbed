@@ -33,14 +33,16 @@ trap cleanup EXIT INT TERM
 source "${REPO_ROOT}/protocols/quic/config.sh"
 PROTO_TAG="quic/${MODE}"
 
-log INFO "Mode:               $MODE"
-log INFO "Server address:     ${SERVER_IP}:${QUIC_PORT} (UDP)"
-log INFO "KEX groups:         $QUIC_GROUPS"
-log INFO "Cipher suites:      $CIPHERS"
-log INFO "Signature algs:     $SIGALGS"
-log INFO "CA certificate:     $CAFILE"
-echo ""
-log INFO "Starting QUIC server (${MODE}) on ${VM2_HOST} ..."
+if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
+    log INFO "Mode:               $MODE"
+    log INFO "Server address:     ${SERVER_IP}:${QUIC_PORT} (UDP)"
+    log INFO "KEX groups:         $QUIC_GROUPS"
+    log INFO "Cipher suites:      $CIPHERS"
+    log INFO "Signature algs:     $SIGALGS"
+    log INFO "CA certificate:     $CAFILE"
+    echo ""
+    log INFO "Starting QUIC server (${MODE}) on ${VM2_HOST} ..."
+fi
 
 ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF
     pkill -f "protocols/quic/server" > /dev/null 2>&1 && sleep 0.2 || true
@@ -52,7 +54,9 @@ EOF
 for i in $(seq 1 20); do
     if ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
         "grep -q 'Server is ready' /tmp/quic-server-${MODE}.log 2>/dev/null" 2>/dev/null; then
-        log INFO "Server is ready and accepting connections."
+        if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
+            log INFO "Server is ready and accepting connections."
+        fi
         break
     fi
     [[ $i -eq 20 ]] && { log ERROR "Server failed to start within 10s. Check /tmp/quic-server-${MODE}.log on ${VM2_HOST}."; exit 1; }

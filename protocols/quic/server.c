@@ -182,6 +182,13 @@ int main(int argc, char *argv[]) {
             char buf[256];
             size_t nread = 0;
             SSL_read_ex(conn, buf, sizeof(buf) - 1, &nread);
+            if (nread > 0) {
+                snprintf(msg, sizeof(msg), "Data OK: %zu bytes received, sending response.", nread);
+                logts("INFO", msg);
+                const char *resp = "HTTP/1.0 200 OK\r\nContent-Length: 5\r\n\r\nOK!\r\n";
+                size_t nwritten = 0;
+                SSL_write_ex(conn, resp, strlen(resp), &nwritten);
+            }
             SSL_stream_conclude(conn, 0);
             SSL_shutdown(conn);
         } else {

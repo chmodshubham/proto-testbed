@@ -70,36 +70,7 @@ rsync -a env.sh "$VM2_USER@$VM2_HOST:$VM2_REPO/"
 
 ## Step 4: Build OpenSSL 4.0
 
-Run on **both VMs** from repo root.
-
-```bash
-mkdir -p os-lib/src
-cd os-lib/src
-curl -LO https://github.com/openssl/openssl/releases/download/openssl-4.0.0/openssl-4.0.0.tar.gz
-tar xzf openssl-4.0.0.tar.gz
-cd openssl-4.0.0
-
-./Configure \
-    --prefix="$(cd ../../.. && pwd)/os-lib/install/openssl-4.0" \
-    --openssldir="$(cd ../../.. && pwd)/os-lib/install/openssl-4.0/ssl" \
-    --libdir=lib \
-    linux-x86_64
-
-make -j$(nproc)
-make install
-```
-
-Verify from repo root:
-
-```bash
-cd ../../..
-source env.sh
-
-$INSTALL/bin/openssl list -kem-algorithms | grep ML-KEM
-$INSTALL/bin/openssl list -tls-groups | grep MLKEM
-```
-
-Both commands should return results.
+See [docs/openssl.md](../../docs/openssl.md) for the full build and smoke test on both VMs.
 
 ## Step 5: Generate PKI
 
@@ -141,7 +112,7 @@ Verify on **vm2**:
 ```bash
 source env.sh
 
-$INSTALL/bin/openssl verify -CAfile pki/out/ca/dtls/classical/ca-cert.pem \
+os-lib/install/openssl-4.0/bin/openssl verify -CAfile pki/out/ca/dtls/classical/ca-cert.pem \
     pki/out/dtls/classical/server-cert.pem
 ```
 
@@ -163,7 +134,7 @@ Or via run.sh:
 ./run.sh --proto dtls --mode classical
 ```
 
-Each connection prints one row: timestamp, connection number, KEX group, cipher suite, verify code. `Verify: 0` confirms certificate validation succeeded.
+Each connection prints one row: timestamp, connection number, KEX group, cipher suite, verify code. `Verify: 0` confirms certificate validation succeeded. After the handshake the client sends `PING` and the server replies `PONG`; the server log line `Data OK: PING received, sending PONG.` proves the encrypted DTLS record was decrypted on vm2.
 
 > [!NOTE]
 > `openssl s_server` exits immediately when used for DTLS because it calls `recvfrom` without first binding the socket. The server here is a small C program (`protocols/dtls/server.c`) that binds a UDP socket via `BIO_new_dgram`, loops accepting connections, and stays resident. The client (`protocols/dtls/client.c`) outputs one line per connection in the format the orchestrator greps for.

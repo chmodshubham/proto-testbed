@@ -186,6 +186,30 @@ if [[ -n "${VM2_PASSWORD:-}" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Build C client binaries on vm1 (dtls, quic)
+# ---------------------------------------------------------------------------
+
+build_local() {
+    local proto="$1"
+    local dir="${REPO_ROOT}/protocols/${proto}"
+    if [[ ! -x "${dir}/client" ]]; then
+        log INFO "Building ${proto} client on vm1 ..."
+        make -s -C "$dir" client || {
+            log ERROR "Failed to build ${proto} client."
+            exit 1
+        }
+        log INFO "Build complete."
+    fi
+}
+
+case "$PROTO" in
+    dtls|all) build_local dtls ;;
+esac
+case "$PROTO" in
+    quic|all) build_local quic ;;
+esac
+
+# ---------------------------------------------------------------------------
 # Sync repo to vm2 (excludes os-lib — binaries are built independently on each VM)
 # ---------------------------------------------------------------------------
 
@@ -196,6 +220,31 @@ rsync_vm2 -a --delete \
     "${REPO_ROOT}/" "${VM2_USER}@${VM2_HOST}:${VM2_REPO}/"
 log INFO "Sync complete."
 echo ""
+
+# ---------------------------------------------------------------------------
+# Build C server binaries on vm2 (dtls, quic)
+# ---------------------------------------------------------------------------
+
+build_vm2() {
+    local proto="$1"
+    if ! ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
+            "[[ -x '${VM2_REPO}/protocols/${proto}/server' ]]" 2>/dev/null; then
+        log INFO "Building ${proto} server on ${VM2_HOST} ..."
+        ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
+            "make -s -C '${VM2_REPO}/protocols/${proto}' server" || {
+            log ERROR "Failed to build ${proto} server on ${VM2_HOST}."
+            exit 1
+        }
+        log INFO "Build complete."
+    fi
+}
+
+case "$PROTO" in
+    dtls|all) build_vm2 dtls ;;
+esac
+case "$PROTO" in
+    quic|all) build_vm2 quic ;;
+esac
 
 # ---------------------------------------------------------------------------
 # Pre-flight: kill stale servers on vm2 holding protocol ports
@@ -226,6 +275,7 @@ cleanup() {
     # Forward SIGTERM to all prefix_run subshells; each forwards to its orchestrator,
     # whose trap kills the remote server on vm2.
     if [[ ${#BGPIDS[@]} -gt 0 ]]; then
+        set +m
         kill -TERM "${BGPIDS[@]}" 2>/dev/null || true
         # Wait up to 3s for graceful exit
         local i
@@ -239,7 +289,7 @@ cleanup() {
             sleep 0.3
         done
         kill -KILL "${BGPIDS[@]}" 2>/dev/null || true
-        wait "${BGPIDS[@]}" 2>/dev/null || true
+        { wait "${BGPIDS[@]}"; } 2>/dev/null || true
     fi
     # Belt-and-suspenders: kill any vm2 servers that orchestrator traps may have missed
     ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash 2>/dev/null <<REMOTE || true

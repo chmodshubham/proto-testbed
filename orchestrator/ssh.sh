@@ -27,12 +27,14 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-log INFO "Mode:               $MODE"
-log INFO "Server address:     ${VM2_IP}:${SSH_PORT}"
-log INFO "KEX algorithms:     ${SSH_KEX}"
-log INFO "Client key:         ${SSH_CLIENT_KEY}"
-echo ""
-log INFO "Syncing PKI to ${VM2_HOST} ..."
+if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
+    log INFO "Mode:               $MODE"
+    log INFO "Server address:     ${VM2_IP}:${SSH_PORT}"
+    log INFO "KEX algorithms:     ${SSH_KEX}"
+    log INFO "Client key:         ${SSH_CLIENT_KEY}"
+    echo ""
+    log INFO "Syncing PKI to ${VM2_HOST} ..."
+fi
 
 ssh_vm2 "${VM2_USER}@${VM2_HOST}" "mkdir -p ${VM2_REPO}/pki/out/ssh/${MODE}"
 rsync_vm2 -q \
@@ -45,7 +47,7 @@ ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF
     cp ${VM2_REPO}/pki/out/ssh/${MODE}/client-key.pub ${VM2_REPO}/pki/out/ssh/${MODE}/authorized_keys
 EOF
 
-log INFO "Starting SSH server (${MODE}) on ${VM2_HOST} ..."
+if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then log INFO "Starting SSH server (${MODE}) on ${VM2_HOST} ..."; fi
 
 ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF
     sudo pkill -f "sshd.*${SSH_PORT}" > /dev/null 2>&1 && sleep 0.2 || true
@@ -80,7 +82,7 @@ while [[ $_STOP -eq 0 ]]; do
 
     ts=$(printf '%(%Y-%m-%d %H:%M:%S)T' -1)
     kex=$(  printf '%s' "$RESULT" | grep -oE 'kex: algorithm: \S+'              | sed 's/^kex: algorithm: //'              | head -1 || true)
-    ciph=$( printf '%s' "$RESULT" | grep -oE 'server->client cipher: \S+'      | sed 's/^server->client cipher: //'         | head -1 || true)
+    ciph=$( printf '%s' "$RESULT" | grep -oE 'server->client cipher: \S+'      | sed 's/^server->client cipher: //;s/@.*//'  | head -1 || true)
     if printf '%s' "$RESULT" | grep -q 'Authenticated to\|debug1: Exit status'; then
         res="0"
     else

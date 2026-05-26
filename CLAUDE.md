@@ -16,7 +16,7 @@ Apply these rules to all code, scripts, configs, and documentation written in th
 
 ## What This Is
 
-PQC Protocol Testbed: two Ubuntu 24.04 VMs running TLS / mTLS / DTLS / QUIC / IPsec / SSH side-by-side with a per-protocol toggle for PQC on/off. An orchestrator starts/stops any subset and pushes dummy traffic.
+PQC Protocol Testbed: two Ubuntu 24.04 VMs running TLS / mTLS / DTLS / QUIC / IPsec / SSH side-by-side with a per-protocol toggle for PQC on/off. An orchestrator starts/stops any subset and pushes dummy traffic, verifying bidirectional application-layer data on every connection.
 
 ## VM Topology
 
@@ -149,8 +149,7 @@ Variables set:
 
 | Variable        | Description                                              |
 | --------------- | -------------------------------------------------------- |
-| `INSTALL`       | Absolute path to `os-lib/install/openssl-4.0`            |
-| `LD_LIBRARY_PATH` | Prepends `$INSTALL/lib`                               |
+| `LD_LIBRARY_PATH` | Prepends `os-lib/install/openssl-4.0/lib`             |
 | `VM1_IP`        | IP address of vm1                                        |
 | `VM2_IP`        | IP address of vm2                                        |
 | `VM2_USER`      | SSH username for vm2                                     |

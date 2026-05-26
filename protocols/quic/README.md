@@ -76,36 +76,7 @@ rsync -a env.sh "$VM2_USER@$VM2_HOST:$VM2_REPO/"
 
 ## Step 4: Build OpenSSL 4.0
 
-Run on **both VMs** from repo root.
-
-```bash
-mkdir -p os-lib/src
-cd os-lib/src
-curl -LO https://github.com/openssl/openssl/releases/download/openssl-4.0.0/openssl-4.0.0.tar.gz
-tar xzf openssl-4.0.0.tar.gz
-cd openssl-4.0.0
-
-./Configure \
-    --prefix="$(cd ../../.. && pwd)/os-lib/install/openssl-4.0" \
-    --openssldir="$(cd ../../.. && pwd)/os-lib/install/openssl-4.0/ssl" \
-    --libdir=lib \
-    linux-x86_64
-
-make -j$(nproc)
-make install
-```
-
-Return to repo root and verify:
-
-```bash
-cd ../../..
-source env.sh
-
-$INSTALL/bin/openssl list -kem-algorithms | grep ML-KEM
-$INSTALL/bin/openssl list -tls-groups | grep MLKEM
-```
-
-Both commands must return results before proceeding.
+See [docs/openssl.md](../../docs/openssl.md) for the full build and smoke test on both VMs.
 
 ## Step 5: Build binaries
 
@@ -171,7 +142,7 @@ Or via run.sh:
 ./run.sh --proto quic --mode pqc
 ```
 
-Each connection prints one row: timestamp, connection number, KEX group, cipher suite, verify code. `Verify: 0` means certificate validation succeeded.
+Each connection prints one row: timestamp, connection number, KEX group, cipher suite, verify code. `Verify: 0` means certificate validation succeeded. After the handshake the client sends `GET / HTTP/1.0` and the server replies with a short HTTP/200; the server log line `Data OK: N bytes received, sending response.` proves the QUIC stream carried application data.
 
 ## Ports
 

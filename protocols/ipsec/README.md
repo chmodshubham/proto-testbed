@@ -97,57 +97,7 @@ rsync -a env.sh "$VM2_USER@$VM2_HOST:$VM2_REPO/"
 
 ## Step 4: Build strongSwan 6.0.6
 
-Run on **both VMs** from the repo root.
-
-> [!IMPORTANT]
-> Do not pass `--with-openssl-prefix` or set `PKG_CONFIG_PATH` to the local OpenSSL 4.0 install. strongSwan must build against the system OpenSSL headers (3.x). If built against OpenSSL 4.0 headers, the openssl plugin compiles in ML-KEM support that references NIDs absent in the system runtime library, causing `creating KE payload failed` at runtime. The `ml` plugin provides ML-KEM-768 independently.
-
-```bash
-mkdir -p os-lib/src
-cd os-lib/src
-curl -LO https://download.strongswan.org/strongswan-6.0.6.tar.gz
-tar xzf strongswan-6.0.6.tar.gz
-cd strongswan-6.0.6
-
-./configure \
-    --prefix="$(cd ../../.. && pwd)/os-lib/install/strongswan" \
-    --sysconfdir="$(cd ../../.. && pwd)/os-lib/install/strongswan/etc" \
-    --disable-defaults \
-    --enable-charon \
-    --enable-ikev2 \
-    --enable-vici \
-    --enable-swanctl \
-    --enable-pki \
-    --enable-nonce \
-    --enable-random \
-    --enable-drbg \
-    --enable-openssl \
-    --enable-pem \
-    --enable-pkcs1 \
-    --enable-pkcs8 \
-    --enable-pubkey \
-    --enable-x509 \
-    --enable-revocation \
-    --enable-constraints \
-    --enable-ml \
-    --enable-kernel-netlink \
-    --enable-socket-default \
-    --enable-updown \
-    --enable-resolve
-
-make -j$(nproc)
-make install
-cd ../../..
-```
-
-Verify:
-
-```bash
-os-lib/install/strongswan/sbin/swanctl --version
-os-lib/install/strongswan/bin/pki --version
-```
-
-Both must print `strongSwan 6.0.6` before proceeding.
+See [docs/strongswan.md](../../docs/strongswan.md) for the full build and smoke test on both VMs.
 
 ## Step 5: Generate PKI
 
@@ -225,7 +175,7 @@ Or via run.sh:
 
 `--mode all` is not supported for IPsec and will exit with an error. Two charon instances cannot share kernel XFRM on the same host.
 
-Each connection prints one row: timestamp, connection number, IKE group, ESP cipher, verify code. `Verify: 0` means SA established successfully.
+Each connection prints one row: timestamp, connection number, IKE group, ESP cipher, verify code. `Verify: 0` means the IKE SA established AND a single ICMP echo to `${VM2_IP}` succeeded through the tunnel. Inspect `ip -s xfrm state` while the SA is up to confirm ESP byte/packet counters increase across the ping, proving ICMP traversed ESP rather than plaintext.
 
 ## Ports
 

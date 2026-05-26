@@ -74,35 +74,7 @@ rsync -a env.sh "$VM2_USER@$VM2_HOST:$VM2_REPO/"
 
 ## Step 4: Build OpenSSH 10.3p1
 
-Run on **both VMs** from repo root.
-
-```bash
-mkdir -p os-lib/src
-cd os-lib/src
-curl -LO https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-10.3p1.tar.gz
-tar xzf openssh-10.3p1.tar.gz
-cd openssh-10.3p1
-
-./configure \
-    --prefix="$(cd ../../.. && pwd)/os-lib/install/openssh" \
-    --sysconfdir="$(cd ../../.. && pwd)/os-lib/install/openssh/etc" \
-    --with-ssl-dir=/usr \
-    --with-pam \
-    --with-privsep-path=/var/empty \
-    --with-sandbox=seccomp_filter
-
-make -j$(nproc)
-sudo make install
-```
-
-Verify from repo root:
-
-```bash
-cd ../../..
-os-lib/install/openssh/bin/ssh -Q kex | grep mlkem
-```
-
-Expected output: `mlkem768x25519-sha256`
+See [docs/openssh.md](../../docs/openssh.md) for the full build and smoke test on both VMs.
 
 ## Step 5: Generate PKI
 
@@ -196,12 +168,3 @@ bash protocols/ssh/client.sh pqc 2>&1 | grep 'kex: algorithm'
 ```
 
 Expected: `debug1: kex: algorithm: mlkem768x25519-sha256`
-
-## Notes
-
-- System sshd stays on port 22. Testbed sshd runs on `$PORT_SSH` / `$PORT_SSH_PQC`.
-- sshd must run as root (privilege separation requires it on Linux).
-- `authorized_keys` path is set in the sshd config at server launch time.
-- Client uses `-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null` to avoid known_hosts conflicts between classical and PQC runs.
-- If the ubuntu account on vm2 is locked (shadow entry `!`), the orchestrator unlocks it automatically before starting sshd. This is required for pubkey auth with `UsePAM no`.
-- `VM2_PASSWORD` controls access to the vm2 system sshd (port 22) used by the orchestrator for management. The testbed sshd (ports 4442/4443) always uses pubkey-only auth regardless of this variable.

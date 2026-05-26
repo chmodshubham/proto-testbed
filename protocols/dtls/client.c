@@ -11,6 +11,7 @@
  * Usage: ./protocols/dtls/client classical
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -116,8 +117,27 @@ int main(int argc, char *argv[]) {
     printf("Verify return code: %ld\n", vrc);
     fflush(stdout);
 
+    int data_rc = 0;
+    if (SSL_write(ssl, "PING\n", 5) != 5) {
+        fprintf(stderr, "[ERROR] Failed to send PING.\n");
+        data_rc = 1;
+    } else {
+        char buf[256];
+        int n = SSL_read(ssl, buf, sizeof(buf) - 1);
+        if (n <= 0) {
+            fprintf(stderr, "[ERROR] No response from server.\n");
+            data_rc = 1;
+        } else {
+            buf[n] = '\0';
+            if (strncmp(buf, "PONG", 4) != 0) {
+                fprintf(stderr, "[ERROR] Unexpected response: %s\n", buf);
+                data_rc = 1;
+            }
+        }
+    }
+
     SSL_shutdown(ssl);
     SSL_free(ssl);
     SSL_CTX_free(ctx);
-    return (int)vrc;
+    return (int)vrc != 0 ? (int)vrc : data_rc;
 }

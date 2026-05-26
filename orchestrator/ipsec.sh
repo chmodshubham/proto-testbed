@@ -23,18 +23,20 @@ if [[ ! -x "${STRONGSWAN_LOCAL}/sbin/swanctl" ]]; then
     exit 1
 fi
 
-log INFO "Mode:               $MODE"
-log INFO "Server address:     ${VM2_IP}:${IPSEC_PORT} (UDP)"
-log INFO "IKE proposals:      $IPSEC_IKE_PROPOSALS"
-log INFO "ESP proposals:      $IPSEC_ESP_PROPOSALS"
-log INFO "CA certificate:     $IPSEC_CA"
-echo ""
+if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
+    log INFO "Mode:               $MODE"
+    log INFO "Server address:     ${VM2_IP}:${IPSEC_PORT} (UDP)"
+    log INFO "IKE proposals:      $IPSEC_IKE_PROPOSALS"
+    log INFO "ESP proposals:      $IPSEC_ESP_PROPOSALS"
+    log INFO "CA certificate:     $IPSEC_CA"
+    echo ""
+fi
 
 # ---------------------------------------------------------------------------
 # Server on vm2
 # ---------------------------------------------------------------------------
 
-log INFO "Starting IPsec server (${MODE}) on ${VM2_HOST} ..."
+if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then log INFO "Starting IPsec server (${MODE}) on ${VM2_HOST} ..."; fi
 
 ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF
     sudo pkill -f charon 2>/dev/null || true
@@ -49,7 +51,7 @@ EOF
 for i in $(seq 1 30); do
     if ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
         "pgrep -f 'libexec/ipsec/charon' > /dev/null 2>&1" 2>/dev/null; then
-        log INFO "Server is ready and accepting connections."
+        if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then log INFO "Server is ready and accepting connections."; fi
         break
     fi
     if [[ $i -eq 30 ]]; then
@@ -158,7 +160,7 @@ connections {
 }
 SCONF
 
-log INFO "Starting client charon on vm1 ..."
+if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then log INFO "Starting client charon on vm1 ..."; fi
 sudo STRONGSWAN_CONF="$SWAN_CONF" \
     LD_LIBRARY_PATH="${STRONGSWAN}/lib/ipsec" \
     "${CHARON}" &
@@ -179,7 +181,7 @@ sw() { sudo env LD_LIBRARY_PATH="${STRONGSWAN}/lib/ipsec" "${SWANCTL}" --uri "un
 
 sw --load-creds --noprompt --file "${SWANCTL_CONF}" > /dev/null 2>&1
 sw --load-conns --file "${SWANCTL_CONF}" > /dev/null 2>&1
-log INFO "Client charon ready."
+if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then log INFO "Client charon ready."; fi
 
 # ---------------------------------------------------------------------------
 # Traffic loop
@@ -206,7 +208,11 @@ while [[ $_STOP -eq 0 ]]; do
     IKE_GRP=$(  printf '%s\n' "$SA_OUT" | grep -E '^  [A-Z_0-9-]+/[A-Z_0-9/-]+' | sed 's/^  //' | grep -oE '[^/]+$' | head -1 || true)
     ESP=$(      printf '%s\n' "$SA_OUT" | grep -oE 'ESP:(AES|CHACHA)[_A-Z0-9-]+' | sed 's/^ESP://' | head -1 || true)
     AUTH_OK=$(  printf '%s\n' "$SA_OUT" | grep -c "ESTABLISHED" || true)
-    [[ "$AUTH_OK" -gt 0 ]] && VERIFY=0 || VERIFY=1
+    if [[ "$AUTH_OK" -gt 0 ]] && ping -c1 -W2 "${VM2_IP}" > /dev/null 2>&1; then
+        VERIFY=0
+    else
+        VERIFY=1
+    fi
 
     printf "%-21s %-16s %-7s %-28s %-36s %s\n" \
         "$TS" "${PROTO_TAG:-ipsec}" "#${COUNT}" "${IKE_GRP:--}" "${ESP:--}" "$VERIFY"

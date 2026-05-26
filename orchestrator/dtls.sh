@@ -33,14 +33,16 @@ SERVER_PORT="${PORT_DTLS:?PORT_DTLS not set. Source env.sh from repo root.}"
 source "${REPO_ROOT}/protocols/dtls/config.sh"
 PROTO_TAG="dtls/${MODE}"
 
-log INFO  "Mode:               $MODE"
-log INFO  "Server address:     ${SERVER_IP}:${SERVER_PORT} (UDP)"
-log INFO  "KEX groups:         $DTLS_GROUPS"
-log INFO  "Cipher suites:      $CIPHERS"
-log INFO  "Signature algs:     $SIGALGS"
-log INFO  "CA certificate:     $CAFILE"
-echo ""
-log INFO  "Starting DTLS server (${MODE}) on ${VM2_HOST} ..."
+if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
+    log INFO  "Mode:               $MODE"
+    log INFO  "Server address:     ${SERVER_IP}:${SERVER_PORT} (UDP)"
+    log INFO  "KEX groups:         $DTLS_GROUPS"
+    log INFO  "Cipher suites:      $CIPHERS"
+    log INFO  "Signature algs:     $SIGALGS"
+    log INFO  "CA certificate:     $CAFILE"
+    echo ""
+    log INFO  "Starting DTLS server (${MODE}) on ${VM2_HOST} ..."
+fi
 
 ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF
     pkill -f "protocols/dtls/server" > /dev/null 2>&1 && sleep 0.2 || true

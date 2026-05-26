@@ -75,6 +75,28 @@ bash orchestrator/ssh.sh  classical   # or pqc
 
 Each orchestrator starts its server on vm2, waits until ready, then loops traffic. Press Ctrl-C to stop.
 
+## Manual Repo Sync
+
+`run.sh` syncs automatically on each run. To sync manually without starting any protocol:
+
+```bash
+source env.sh
+rsync -a --delete \
+    --exclude='os-lib/' \
+    --exclude='.git/' \
+    "${PWD}/" "${VM2_USER}@${VM2_HOST}:${VM2_REPO}/"
+```
+
+If `VM2_PASSWORD` is set:
+
+```bash
+source env.sh
+RSYNC_RSH="sshpass -p '$VM2_PASSWORD' ssh" rsync -a --delete \
+    --exclude='os-lib/' \
+    --exclude='.git/' \
+    "${PWD}/" "${VM2_USER}@${VM2_HOST}:${VM2_REPO}/"
+```
+
 ## Protocol Summary
 
 | Protocol | PQC | KEX (PQC)              | Port (classical / PQC) | Transport |
@@ -124,10 +146,10 @@ Each protocol has a README with full build, PKI, and run instructions. Steps 1-3
 
 All libraries are built from source into `os-lib/install/`. Nothing is installed system-wide. `os-lib/` is gitignored and must be built independently on each VM.
 
-Build guides (Step 4 in each README):
+Build guides (canonical, one per library; cover vm1 and vm2):
 
-| Library    | Build guide                                                     |
-| ---------- | --------------------------------------------------------------- |
-| OpenSSL    | [protocols/tls/README.md](protocols/tls/README.md#step-4-build-openssl-40) — used by TLS, mTLS, DTLS, QUIC |
-| strongSwan | [protocols/ipsec/README.md](protocols/ipsec/README.md#step-4-build-strongswan-606) — used by IPsec |
-| OpenSSH    | [protocols/ssh/README.md](protocols/ssh/README.md#step-4-build-openssh-103p1) — used by SSH |
+| Library    | Build guide                                  | Used by                    |
+| ---------- | -------------------------------------------- | -------------------------- |
+| OpenSSL    | [docs/openssl.md](docs/openssl.md)           | TLS, mTLS, DTLS, QUIC      |
+| strongSwan | [docs/strongswan.md](docs/strongswan.md)     | IPsec                      |
+| OpenSSH    | [docs/openssh.md](docs/openssh.md)           | SSH                        |

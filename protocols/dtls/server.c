@@ -8,6 +8,7 @@
  * Usage: ./protocols/dtls/server classical
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -162,7 +163,12 @@ int main(int argc, char *argv[]) {
                      "Handshake OK: KEX=%-20s Cipher=%s", grp, ciph);
             logts("INFO", msg);
             char buf[256];
-            (void)SSL_read(ssl, buf, sizeof(buf));
+            int n = SSL_read(ssl, buf, sizeof(buf) - 1);
+            if (n > 0) {
+                buf[n] = '\0';
+                logts("INFO", "Data OK: PING received, sending PONG.");
+                SSL_write(ssl, "PONG\n", 5);
+            }
             SSL_shutdown(ssl);
         } else {
             ERR_clear_error();

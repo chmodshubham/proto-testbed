@@ -17,19 +17,18 @@ fi
 # Build toolchain
 # ---------------------------------------------------------------------------
 
-export INSTALL="$(pwd)/os-lib/install/openssl-4.0"
-export LD_LIBRARY_PATH="${INSTALL}/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+export LD_LIBRARY_PATH="$(pwd)/os-lib/install/openssl-4.0/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 # ---------------------------------------------------------------------------
 # VM topology
 # ---------------------------------------------------------------------------
 
-export VM1_IP=10.141.230.62       # vm1  — client
-export VM2_IP=10.141.230.76       # vm2  — server
+export VM1_IP=10.141.230.168       # vm1  — client
+export VM2_IP=10.141.230.126       # vm2  — server
 
 # vm2 SSH connection (used by orchestrator scripts on vm1 only)
 export VM2_USER=ubuntu
-export VM2_HOST=vm14
+export VM2_HOST=vm10
 export VM2_REPO="/home/ubuntu/proto-testbed"   # absolute path
 export VM2_PASSWORD=""                     # set if vm2 system SSH requires password; leave empty for key-based auth
 

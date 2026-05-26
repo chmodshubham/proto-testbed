@@ -28,15 +28,17 @@ SERVER_IP="${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}"
 source "${REPO_ROOT}/protocols/mtls/config.sh"
 PROTO_TAG="mtls/${MODE}"
 
-log INFO  "Mode:               $MODE"
-log INFO  "Server address:     ${SERVER_IP}:${MTLS_PORT}"
-log INFO  "KEX groups:         $MTLS_GROUPS"
-log INFO  "Cipher suites:      $CIPHERS"
-log INFO  "Signature algs:     $SIGALGS"
-log INFO  "CA certificate:     $CAFILE"
-log INFO  "Client certificate: $CLIENT_CERT"
-echo ""
-log INFO  "Starting mTLS server (${MODE}) on ${VM2_HOST} ..."
+if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
+    log INFO  "Mode:               $MODE"
+    log INFO  "Server address:     ${SERVER_IP}:${MTLS_PORT}"
+    log INFO  "KEX groups:         $MTLS_GROUPS"
+    log INFO  "Cipher suites:      $CIPHERS"
+    log INFO  "Signature algs:     $SIGALGS"
+    log INFO  "CA certificate:     $CAFILE"
+    log INFO  "Client certificate: $CLIENT_CERT"
+    echo ""
+    log INFO  "Starting mTLS server (${MODE}) on ${VM2_HOST} ..."
+fi
 
 ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF
     pkill -f "s_server.*${MTLS_PORT}" > /dev/null 2>&1 && sleep 0.2 || true

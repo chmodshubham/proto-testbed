@@ -155,10 +155,21 @@ int main(int argc, char *argv[]) {
     printf("Verify return code: %ld\n", vrc);
     fflush(stdout);
 
+    int data_rc = 0;
     size_t nwritten = 0;
-    SSL_write_ex(ssl, "GET / HTTP/1.0\r\n\r\n", 18, &nwritten);
+    if (!SSL_write_ex(ssl, "GET / HTTP/1.0\r\n\r\n", 18, &nwritten)) {
+        fprintf(stderr, "[ERROR] Failed to send request.\n");
+        data_rc = 1;
+    } else {
+        char buf[256];
+        size_t nread = 0;
+        if (!SSL_read_ex(ssl, buf, sizeof(buf) - 1, &nread) || nread == 0) {
+            fprintf(stderr, "[ERROR] No response from server.\n");
+            data_rc = 1;
+        }
+    }
     SSL_shutdown(ssl);
     SSL_free(ssl);
     SSL_CTX_free(ctx);
-    return (int)vrc;
+    return (int)vrc != 0 ? (int)vrc : data_rc;
 }

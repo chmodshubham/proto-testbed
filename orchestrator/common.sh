@@ -89,7 +89,9 @@ wait_tcp() {
     local port="$1" logfile="$2"
     for i in {1..20}; do
         if ssh_vm2 "${VM2_USER}@${VM2_HOST}" "ss -tlnp | grep -q ${port}" 2>/dev/null; then
-            log INFO "Server is ready and accepting connections."
+            if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
+                log INFO "Server is ready and accepting connections."
+            fi
             return
         fi
         [[ $i -eq 20 ]] && { log ERROR "Server failed to start within 10s. Check ${logfile} on ${VM2_HOST}."; exit 1; }
@@ -102,7 +104,9 @@ wait_proc() {
     local pattern="$1" logfile="$2"
     for i in {1..20}; do
         if ssh_vm2 "${VM2_USER}@${VM2_HOST}" "pgrep -f '${pattern}' > /dev/null" 2>/dev/null; then
-            log INFO "Server is ready and accepting connections."
+            if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
+                log INFO "Server is ready and accepting connections."
+            fi
             return
         fi
         [[ $i -eq 20 ]] && { log ERROR "Server failed to start within 10s. Check ${logfile} on ${VM2_HOST}."; exit 1; }
@@ -115,7 +119,8 @@ wait_proc() {
 kill_vm2_ports() {
     local proto="$1"
     ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF 2>/dev/null || true
-        source "${VM2_REPO}/env.sh"
+        cd "${VM2_REPO}" || exit 0
+        source env.sh || exit 0
         case "${proto}" in
             tls)
                 sudo fuser -k \${PORT_TLS}/tcp     > /dev/null 2>&1 || true
@@ -146,6 +151,8 @@ kill_vm2_ports() {
                 sudo ip xfrm state flush  > /dev/null 2>&1 || true
                 ;;
             ssh)
+                [[ -n "\${PORT_SSH}" ]]     || exit 0
+                [[ -n "\${PORT_SSH_PQC}" ]] || exit 0
                 sudo fuser -k \${PORT_SSH}/tcp     > /dev/null 2>&1 || true
                 sudo fuser -k \${PORT_SSH_PQC}/tcp > /dev/null 2>&1 || true
                 pkill -f "sshd.*\${PORT_SSH}"     > /dev/null 2>&1 || true
@@ -158,10 +165,12 @@ kill_vm2_ports() {
                 sudo pkill -f "libexec/ipsec/charon" > /dev/null 2>&1 || true
                 sudo ip xfrm policy flush > /dev/null 2>&1 || true
                 sudo ip xfrm state flush  > /dev/null 2>&1 || true
-                sudo fuser -k \${PORT_SSH}/tcp     > /dev/null 2>&1 || true
-                sudo fuser -k \${PORT_SSH_PQC}/tcp > /dev/null 2>&1 || true
-                pkill -f "sshd.*\${PORT_SSH}"     > /dev/null 2>&1 || true
-                pkill -f "sshd.*\${PORT_SSH_PQC}" > /dev/null 2>&1 || true
+                if [[ -n "\${PORT_SSH}" && -n "\${PORT_SSH_PQC}" ]]; then
+                    sudo fuser -k \${PORT_SSH}/tcp     > /dev/null 2>&1 || true
+                    sudo fuser -k \${PORT_SSH_PQC}/tcp > /dev/null 2>&1 || true
+                    pkill -f "sshd.*\${PORT_SSH}"     > /dev/null 2>&1 || true
+                    pkill -f "sshd.*\${PORT_SSH_PQC}" > /dev/null 2>&1 || true
+                fi
                 ;;
         esac
         sleep 0.5

@@ -69,36 +69,7 @@ rsync -a env.sh "$VM2_USER@$VM2_HOST:$VM2_REPO/"
 
 ## Step 4: Build OpenSSL 4.0
 
-Run on **both VMs** from repo root.
-
-```bash
-mkdir -p os-lib/src
-cd os-lib/src
-curl -LO https://github.com/openssl/openssl/releases/download/openssl-4.0.0/openssl-4.0.0.tar.gz
-tar xzf openssl-4.0.0.tar.gz
-cd openssl-4.0.0
-
-./Configure \
-    --prefix="$(cd ../../.. && pwd)/os-lib/install/openssl-4.0" \
-    --openssldir="$(cd ../../.. && pwd)/os-lib/install/openssl-4.0/ssl" \
-    --libdir=lib \
-    linux-x86_64
-
-make -j$(nproc)
-make install
-```
-
-Verify from repo root:
-
-```bash
-cd ../../..
-source env.sh
-
-$INSTALL/bin/openssl list -kem-algorithms | grep ML-KEM
-$INSTALL/bin/openssl list -tls-groups | grep MLKEM
-```
-
-Both commands should return results.
+See [docs/openssl.md](../../docs/openssl.md) for the full build and smoke test on both VMs.
 
 ## Step 5: Generate PKI
 
@@ -136,10 +107,10 @@ Verify on **vm2**:
 ```bash
 source env.sh
 
-$INSTALL/bin/openssl verify -CAfile pki/out/ca/mtls/classical/ca-cert.pem \
+os-lib/install/openssl-4.0/bin/openssl verify -CAfile pki/out/ca/mtls/classical/ca-cert.pem \
     pki/out/mtls/classical/server-cert.pem
 
-$INSTALL/bin/openssl verify -CAfile pki/out/ca/mtls/pqc/ca-cert.pem \
+os-lib/install/openssl-4.0/bin/openssl verify -CAfile pki/out/ca/mtls/pqc/ca-cert.pem \
     pki/out/mtls/pqc/server-cert.pem
 ```
 
