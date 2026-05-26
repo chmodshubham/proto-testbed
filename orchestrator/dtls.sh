@@ -15,7 +15,7 @@ if [[ ! -x "${REPO_ROOT}/protocols/dtls/client" ]]; then
     exit 1
 fi
 
-check_env
+resolve_vm_config dtls
 
 MODE="${1:-classical}"
 

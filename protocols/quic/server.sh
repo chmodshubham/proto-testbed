@@ -20,6 +20,7 @@ if [[ ! -x "${QUIC_DIR}/server" ]]; then
     exit 1
 fi
 
+resolve_vm_config quic
 BIND_IP="${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}"
 source "${REPO_ROOT}/protocols/quic/config.sh"
 

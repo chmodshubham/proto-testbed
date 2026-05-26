@@ -11,7 +11,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "${REPO_ROOT}/orchestrator/common.sh"
 
 check_ossl "protocols/tls/README.md"
-check_env
+resolve_vm_config tls
 
 MODE="${1:-classical}"
 

@@ -8,6 +8,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "${REPO_ROOT}/orchestrator/common.sh"
+resolve_vm_config ipsec
 
 MODE="${1:-pqc}"
 source "${REPO_ROOT}/protocols/ipsec/config.sh" "$MODE"

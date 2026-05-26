@@ -60,16 +60,19 @@ Identical path on both VMs is recommended (e.g. `/home/ubuntu/proto-testbed`).
 
 ## Step 4: Configure `env.sh` on vm1
 
-Edit `env.sh` and set:
+Each protocol connects to its own pair of VMs. There is no shared default: the protocol you run reads only its own `<PROTO>_*` variables. Set all six variables for every protocol you plan to run (`PROTO` is one of `TLS MTLS DTLS QUIC IPSEC SSH`):
 
 ```bash
-export VM2_USER=ubuntu
-export VM2_HOST=<vm2-hostname>
-export VM2_REPO="/home/ubuntu/proto-testbed"   # absolute path on vm2
-export VM1_IP=<vm1-ip>
-export VM2_IP=<vm2-ip>
-export VM2_PASSWORD=""   # set only if vm2 SSH requires a password
+# TLS (repeat the same six for MTLS_, DTLS_, QUIC_, IPSEC_, SSH_)
+export TLS_VM1_IP=<vm1-ip>
+export TLS_VM2_IP=<vm2-ip>
+export TLS_VM2_USER=ubuntu
+export TLS_VM2_HOST=<vm2-hostname>
+export TLS_VM2_REPO="/home/ubuntu/proto-testbed"   # absolute path on vm2
+export TLS_VM2_PASSWORD=""   # set only if vm2 SSH requires a password
 ```
+
+To point every protocol at the same pair of VMs, set the same values across all six prefixes. To split protocols across different VMs, give each prefix its own values. `orchestrator/common.sh:resolve_vm_config` maps the running protocol's `<PROTO>_*` variables onto `VM1_IP` / `VM2_IP` / `VM2_USER` / `VM2_HOST` / `VM2_REPO` / `VM2_PASSWORD`, and fails fast if any are unset.
 
 ### How to obtain each value
 

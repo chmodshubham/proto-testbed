@@ -8,6 +8,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "${REPO_ROOT}/orchestrator/common.sh"
+resolve_vm_config ssh
 
 MODE="${1:-classical}"
 SERVER_IP="${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}"

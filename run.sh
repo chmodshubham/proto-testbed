@@ -88,11 +88,8 @@ esac
     MODE="pqc"
 }
 
-# ---------------------------------------------------------------------------
-# Env validation
-# ---------------------------------------------------------------------------
-
-[[ "$VM2_REPO" == "~"* ]] && { log ERROR "VM2_REPO must be an absolute path (no tilde). Edit env.sh."; exit 1; }
+# Per-protocol VM config is resolved later (prepare_proto), once per protocol.
+# Each protocol syncs and runs against its own vm2; there is no single shared vm2.
 
 # ---------------------------------------------------------------------------
 # Binary checks — only for the protocols being run
@@ -177,13 +174,13 @@ esac
 case "$PROTO" in
     ssh|all)
         ensure_apt_deps build-essential libpam0g-dev libssl-dev zlib1g-dev
-        [[ -n "${VM2_PASSWORD:-}" ]] && ensure_apt_deps sshpass
         ;;
 esac
-# sshpass needed for all protocols when VM2_PASSWORD is set (management SSH)
-if [[ -n "${VM2_PASSWORD:-}" ]]; then
-    ensure_apt_deps sshpass
-fi
+# sshpass needed when any per-protocol VM2 password is set (management SSH)
+for _p in TLS MTLS DTLS QUIC IPSEC SSH; do
+    _pw="${_p}_VM2_PASSWORD"
+    if [[ -n "${!_pw:-}" ]]; then ensure_apt_deps sshpass; break; fi
+done
 
 # ---------------------------------------------------------------------------
 # Build C client binaries on vm1 (dtls, quic)
@@ -210,49 +207,50 @@ case "$PROTO" in
 esac
 
 # ---------------------------------------------------------------------------
-# Sync repo to vm2 (excludes os-lib — binaries are built independently on each VM)
+# Per-protocol vm2 preparation: resolve that protocol's VM, sync the repo to it,
+# build its C server binary if needed, and clear stale servers on its ports.
+# Each protocol may target a different vm2, so this runs once per protocol.
 # ---------------------------------------------------------------------------
 
-log INFO "Syncing repo to ${VM2_USER}@${VM2_HOST}:${VM2_REPO} ..."
-rsync_vm2 -a --delete \
-    --exclude='os-lib/' \
-    --exclude='.git/' \
-    "${REPO_ROOT}/" "${VM2_USER}@${VM2_HOST}:${VM2_REPO}/"
-log INFO "Sync complete."
-echo ""
+PREPARED_PROTOS=()
 
-# ---------------------------------------------------------------------------
-# Build C server binaries on vm2 (dtls, quic)
-# ---------------------------------------------------------------------------
-
-build_vm2() {
+prepare_proto() {
     local proto="$1"
-    if ! ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
-            "[[ -x '${VM2_REPO}/protocols/${proto}/server' ]]" 2>/dev/null; then
-        log INFO "Building ${proto} server on ${VM2_HOST} ..."
-        ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
-            "make -s -C '${VM2_REPO}/protocols/${proto}' server" || {
-            log ERROR "Failed to build ${proto} server on ${VM2_HOST}."
-            exit 1
-        }
-        log INFO "Build complete."
+    resolve_vm_config "$proto"
+
+    log INFO "Syncing repo to ${VM2_USER}@${VM2_HOST}:${VM2_REPO} (${proto}) ..."
+    rsync_vm2 -a --delete \
+        --exclude='os-lib/' \
+        --exclude='.git/' \
+        "${REPO_ROOT}/" "${VM2_USER}@${VM2_HOST}:${VM2_REPO}/"
+
+    if [[ "$proto" == "dtls" || "$proto" == "quic" ]]; then
+        if ! ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
+                "[[ -x '${VM2_REPO}/protocols/${proto}/server' ]]" 2>/dev/null; then
+            log INFO "Building ${proto} server on ${VM2_HOST} ..."
+            ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
+                "make -s -C '${VM2_REPO}/protocols/${proto}' server" || {
+                log ERROR "Failed to build ${proto} server on ${VM2_HOST}."
+                exit 1
+            }
+        fi
     fi
+
+    log INFO "Clearing stale servers on ${VM2_HOST} (${proto}) ..."
+    kill_vm2_ports "${proto}"
+    PREPARED_PROTOS+=("$proto")
 }
 
-case "$PROTO" in
-    dtls|all) build_vm2 dtls ;;
-esac
-case "$PROTO" in
-    quic|all) build_vm2 quic ;;
-esac
-
-# ---------------------------------------------------------------------------
-# Pre-flight: kill stale servers on vm2 holding protocol ports
-# ---------------------------------------------------------------------------
-
-log INFO "Clearing stale servers on ${VM2_HOST} ..."
-kill_vm2_ports "${PROTO}"
-log INFO "Ports clear."
+# prepare every protocol that will run, before launching traffic
+if [[ "$PROTO" == "all" ]]; then
+    for _proto in tls mtls dtls quic ipsec ssh; do
+        [[ "$_proto" == "dtls" && "$MODE" == "pqc" ]] && continue
+        prepare_proto "$_proto"
+    done
+else
+    prepare_proto "$PROTO"
+fi
+log INFO "All targets prepared."
 echo ""
 
 # ---------------------------------------------------------------------------
@@ -291,18 +289,14 @@ cleanup() {
         kill -KILL "${BGPIDS[@]}" 2>/dev/null || true
         { wait "${BGPIDS[@]}"; } 2>/dev/null || true
     fi
-    # Belt-and-suspenders: kill any vm2 servers that orchestrator traps may have missed
-    ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash 2>/dev/null <<REMOTE || true
-        pkill -f "s_server.*${PORT_TLS}"       2>/dev/null || true
-        pkill -f "s_server.*${PORT_TLS_PQC}"   2>/dev/null || true
-        pkill -f "s_server.*${PORT_MTLS}"      2>/dev/null || true
-        pkill -f "s_server.*${PORT_MTLS_PQC}"  2>/dev/null || true
-        pkill -f "protocols/dtls/server"       2>/dev/null || true
-        pkill -f "protocols/quic/server"       2>/dev/null || true
-        sudo pkill -f "libexec/ipsec/charon"   2>/dev/null || true
-        sudo pkill -f "sshd.*${PORT_SSH}"      2>/dev/null || true
-        sudo pkill -f "sshd.*${PORT_SSH_PQC}"  2>/dev/null || true
-REMOTE
+    # Belt-and-suspenders: for each prepared protocol, resolve its vm2 and kill any
+    # servers the orchestrator traps may have missed on that protocol's ports.
+    local cp
+    for cp in "${PREPARED_PROTOS[@]}"; do
+        resolve_vm_config "$cp"
+        kill_vm2_ports "$cp"
+    done
+    # Local charon and XFRM state (ipsec client runs on vm1)
     sudo pkill -f "libexec/ipsec/charon" 2>/dev/null || true
     sudo ip xfrm policy flush 2>/dev/null || true
     sudo ip xfrm state flush  2>/dev/null || true

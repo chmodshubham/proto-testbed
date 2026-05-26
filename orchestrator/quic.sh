@@ -11,12 +11,13 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "${REPO_ROOT}/orchestrator/common.sh"
 
 check_ossl "protocols/quic/README.md"
-check_env
 
 if [[ ! -x "${REPO_ROOT}/protocols/quic/client" ]]; then
     log ERROR "QUIC client binary not found. Run: make -C protocols/quic"
     exit 1
 fi
+
+resolve_vm_config quic
 
 MODE="${1:-classical}"
 SERVER_IP="${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}"

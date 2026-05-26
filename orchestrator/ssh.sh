@@ -11,7 +11,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 source "${REPO_ROOT}/orchestrator/common.sh"
 
 check_openssh "protocols/ssh/README.md"
-check_env
+resolve_vm_config ssh
 
 MODE="${1:-classical}"
 

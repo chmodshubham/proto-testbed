@@ -10,6 +10,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "${REPO_ROOT}/orchestrator/common.sh"
 
 check_ossl "protocols/tls/README.md"
+resolve_vm_config tls
 
 MODE="${1:-classical}"
 BIND_IP="${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}"

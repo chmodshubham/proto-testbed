@@ -20,17 +20,70 @@ fi
 export LD_LIBRARY_PATH="$(pwd)/os-lib/install/openssl-4.0/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
 # ---------------------------------------------------------------------------
-# VM topology
+# Per-protocol VM topology
 # ---------------------------------------------------------------------------
+# Each protocol connects to its own pair of VMs. There is no shared default:
+# the protocol you run reads only its own <PROTO>_* variables. resolve_vm_config
+# in orchestrator/common.sh maps these onto VM1_IP / VM2_IP / VM2_USER /
+# VM2_HOST / VM2_REPO / VM2_PASSWORD for the running protocol.
+#
+# For each protocol set all six variables:
+#   <PROTO>_VM1_IP        client IP (vm1)
+#   <PROTO>_VM2_IP        server IP (vm2), connect target and cert SAN
+#   <PROTO>_VM2_USER      SSH login user on vm2
+#   <PROTO>_VM2_HOST      SSH host for vm2 (DNS or IP)
+#   <PROTO>_VM2_REPO      absolute repo path on vm2 (no tilde)
+#   <PROTO>_VM2_PASSWORD  vm2 SSH password; empty for key-based auth
+#
+# PROTO is one of: TLS MTLS DTLS QUIC IPSEC SSH
 
-export VM1_IP=10.141.230.168       # vm1  — client
-export VM2_IP=10.141.230.126       # vm2  — server
+# TLS
+export TLS_VM1_IP=10.141.230.168
+export TLS_VM2_IP=10.141.230.126
+export TLS_VM2_USER=ubuntu
+export TLS_VM2_HOST=vm10
+export TLS_VM2_REPO="/home/ubuntu/proto-testbed"
+export TLS_VM2_PASSWORD=""
 
-# vm2 SSH connection (used by orchestrator scripts on vm1 only)
-export VM2_USER=ubuntu
-export VM2_HOST=vm10
-export VM2_REPO="/home/ubuntu/proto-testbed"   # absolute path
-export VM2_PASSWORD=""                     # set if vm2 system SSH requires password; leave empty for key-based auth
+# mTLS
+export MTLS_VM1_IP=10.141.230.168
+export MTLS_VM2_IP=10.141.230.126
+export MTLS_VM2_USER=ubuntu
+export MTLS_VM2_HOST=vm10
+export MTLS_VM2_REPO="/home/ubuntu/proto-testbed"
+export MTLS_VM2_PASSWORD=""
+
+# DTLS
+export DTLS_VM1_IP=10.141.230.168
+export DTLS_VM2_IP=10.141.230.126
+export DTLS_VM2_USER=ubuntu
+export DTLS_VM2_HOST=vm10
+export DTLS_VM2_REPO="/home/ubuntu/proto-testbed"
+export DTLS_VM2_PASSWORD=""
+
+# QUIC
+export QUIC_VM1_IP=10.141.230.168
+export QUIC_VM2_IP=10.141.230.126
+export QUIC_VM2_USER=ubuntu
+export QUIC_VM2_HOST=vm10
+export QUIC_VM2_REPO="/home/ubuntu/proto-testbed"
+export QUIC_VM2_PASSWORD=""
+
+# IPsec
+export IPSEC_VM1_IP=10.141.230.168
+export IPSEC_VM2_IP=10.141.230.126
+export IPSEC_VM2_USER=ubuntu
+export IPSEC_VM2_HOST=vm10
+export IPSEC_VM2_REPO="/home/ubuntu/proto-testbed"
+export IPSEC_VM2_PASSWORD=""
+
+# SSH
+export SSH_VM1_IP=10.141.230.168
+export SSH_VM2_IP=10.141.230.126
+export SSH_VM2_USER=ubuntu
+export SSH_VM2_HOST=vm10
+export SSH_VM2_REPO="/home/ubuntu/proto-testbed"
+export SSH_VM2_PASSWORD=""
 
 # ---------------------------------------------------------------------------
 # Protocol ports (all listeners on vm2)

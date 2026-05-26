@@ -24,10 +24,6 @@ OSSL="${REPO_ROOT}/os-lib/install/openssl-4.0/bin/openssl"
 
 log() { printf '[%s] %s\n' "$1" "$2"; }
 
-VM1_IP="${VM1_IP:?VM1_IP not set. Source env.sh from repo root.}"
-VM2_IP="${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}"
-VM2_HOST="${VM2_HOST:?VM2_HOST not set. Source env.sh from repo root.}"
-
 if [[ ! -x "$OSSL" ]]; then
     log ERROR "OpenSSL binary not found at: $OSSL"
     log ERROR "Complete the OpenSSL build before running this script (see protocols/tls/README.md Step 4)."
@@ -114,13 +110,26 @@ if [[ "$PROTO" == "ipsec" || "$PROTO" == "all" ]]; then
     fi
 fi
 
-# Build a base cnf with current VM2 IP and hostname substituted in the SAN block.
+# BASE_CNF holds the SAN-substituted cnf for the protocol currently being generated.
+# set_proto_vm rebuilds it from that protocol's own VM variables; there is no shared
+# default. Certs for each protocol carry that protocol's vm2 IP and host in the SAN.
 BASE_CNF="$(mktemp --suffix=.cnf)"
 trap 'rm -f "$BASE_CNF"' EXIT
-sed \
-    -e "s|^IP\.1.*|IP.1  = ${VM2_IP}|" \
-    -e "s|^DNS\.1.*|DNS.1 = ${VM2_HOST}|" \
-    "${REPO_ROOT}/pki/ca.cnf" > "$BASE_CNF"
+
+# set_proto_vm <proto> — load <PROTO>_VM1_IP / <PROTO>_VM2_IP / <PROTO>_VM2_HOST into
+# VM1_IP / VM2_IP / VM2_HOST and rebuild BASE_CNF with that protocol's SAN values.
+set_proto_vm() {
+    local proto="$1" p
+    p="$(printf '%s' "$proto" | tr '[:lower:]' '[:upper:]')"
+    local v1="${p}_VM1_IP" v2ip="${p}_VM2_IP" v2host="${p}_VM2_HOST"
+    VM1_IP="${!v1:?${v1} not set. Set per-protocol VM vars in env.sh.}"
+    VM2_IP="${!v2ip:?${v2ip} not set. Set per-protocol VM vars in env.sh.}"
+    VM2_HOST="${!v2host:?${v2host} not set. Set per-protocol VM vars in env.sh.}"
+    sed \
+        -e "s|^IP\.1.*|IP.1  = ${VM2_IP}|" \
+        -e "s|^DNS\.1.*|DNS.1 = ${VM2_HOST}|" \
+        "${REPO_ROOT}/pki/ca.cnf" > "$BASE_CNF"
+}
 
 # init_ca <ca_dir>
 # Initialises the CA database under <ca_dir>/db/ and prints the cnf path.
@@ -447,6 +456,7 @@ verify_certs() {
 run_proto_mode() {
     local proto="$1" mode="$2"
     [[ "$proto" == "dtls" && "$mode" == "pqc" ]] && return
+    set_proto_vm "$proto"
     "gen_${proto}_${mode}"
 }
 

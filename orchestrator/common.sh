@@ -73,13 +73,30 @@ check_ossl() {
     fi
 }
 
-# check_env — validate required VM2_* vars are set and VM2_REPO is absolute
-check_env() {
-    VM2_USER="${VM2_USER:?VM2_USER not set. Source env.sh from repo root.}"
-    VM2_HOST="${VM2_HOST:?VM2_HOST not set. Source env.sh from repo root.}"
-    VM2_REPO="${VM2_REPO:?VM2_REPO not set. Source env.sh from repo root.}"
+# resolve_vm_config <proto> — load the per-protocol VM variables for <proto> into
+# the plain VM1_IP / VM2_IP / VM2_USER / VM2_HOST / VM2_REPO / VM2_PASSWORD names
+# the rest of the testbed reads. <proto> is one of: tls mtls dtls quic ipsec ssh.
+# There is no shared default; every <PROTO>_* variable must be set in env.sh.
+resolve_vm_config() {
+    local proto="$1"
+    local p
+    p="$(printf '%s' "$proto" | tr '[:lower:]' '[:upper:]')"
+    local v1 v2ip v2user v2host v2repo
+    v1="${p}_VM1_IP"
+    v2ip="${p}_VM2_IP"
+    v2user="${p}_VM2_USER"
+    v2host="${p}_VM2_HOST"
+    v2repo="${p}_VM2_REPO"
+    VM1_IP="${!v1:?${v1} not set. Set per-protocol VM vars in env.sh.}"
+    VM2_IP="${!v2ip:?${v2ip} not set. Set per-protocol VM vars in env.sh.}"
+    VM2_USER="${!v2user:?${v2user} not set. Set per-protocol VM vars in env.sh.}"
+    VM2_HOST="${!v2host:?${v2host} not set. Set per-protocol VM vars in env.sh.}"
+    VM2_REPO="${!v2repo:?${v2repo} not set. Set per-protocol VM vars in env.sh.}"
+    local v2pass="${p}_VM2_PASSWORD"
+    VM2_PASSWORD="${!v2pass:-}"
+    export VM1_IP VM2_IP VM2_USER VM2_HOST VM2_REPO VM2_PASSWORD
     if [[ "$VM2_REPO" == "~"* ]]; then
-        log ERROR "VM2_REPO must be an absolute path (no tilde). Edit env.sh."
+        log ERROR "${v2repo} must be an absolute path (no tilde). Edit env.sh."
         exit 1
     fi
 }

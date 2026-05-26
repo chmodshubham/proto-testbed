@@ -18,6 +18,7 @@ if [[ "$MODE" != "classical" ]]; then
 fi
 
 check_ossl "protocols/dtls/README.md"
+resolve_vm_config dtls
 
 SERVER_IP="${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}"
 source "${REPO_ROOT}/protocols/dtls/config.sh"
