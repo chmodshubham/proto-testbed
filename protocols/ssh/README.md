@@ -1,152 +1,83 @@
 # SSH Setup
 
-vm1 = client, vm2 = server. Servers run on vm2; traffic is driven from vm1.
+vm1 opens an SSH session to a testbed `sshd` running on vm2 in a loop. Each connection completes a full SSH handshake, authenticates via the testbed key pair, and prints the negotiated KEX, cipher, and verification result. Runs in classical or post-quantum mode. The system `sshd` on port 22 is untouched.
 
 | Mode      | Key Type | KEX                   | Port |
 | --------- | -------- | --------------------- | ---- |
 | Classical | ED25519  | curve25519-sha256     | 4442 |
 | PQC       | ED25519  | mlkem768x25519-sha256 | 4443 |
 
-All commands run from the repo root. Every terminal session starts with:
+SSH uses raw key files (ED25519), not X.509 certificates. PQC applies to the KEX only (ML-KEM-768 + X25519 hybrid, default in OpenSSH 10.0+).
 
-```bash
-cd /path/to/proto-testbed
-source env.sh
-```
+## Pre-requisites
 
-## Prerequisites
+See the root [README.md](../../README.md) for VM setup, hardware, and per-protocol `env.sh` configuration. Install OpenSSH 10.3p1 on both VMs first per [docs/openssh.md](../../docs/openssh.md).
 
-- Ubuntu 24.04 LTS (x86_64) on both VMs
-- Passwordless SSH from vm1 to vm2 (or set `VM2_PASSWORD` in env.sh)
-- `sudo` access on both VMs
-
-### Hardware requirements
-
-| Resource     | Minimum | Notes                                                                             |
-| ------------ | ------- | --------------------------------------------------------------------------------- |
-| Architecture | x86_64  | Build target is `linux-x86_64`                                                    |
-| CPU          | 1 core  | Build uses `make -j$(nproc)`; more cores reduce compile time (~2 min on 4 cores)  |
-| RAM          | 64 MB   | sshd privilege separation adds one child per connection; idle footprint under 20 MB |
-| Disk         | 50 MB   | Installed tree (`os-lib/install/openssh/`); source + build tree ~30 MB            |
-
-## Step 1: Install build dependencies
-
-Run on **both VMs**.
-
-```bash
-sudo apt-get install -y build-essential libpam0g-dev libssl-dev zlib1g-dev
-```
-
-If vm2 requires password auth from vm1, also install on **vm1**:
+If vm2 requires password auth from vm1, also install `sshpass` on **vm1**:
 
 ```bash
 sudo apt-get install -y sshpass
 ```
 
-## Step 2: Clone the repo
+## Run
 
-Run on **both VMs**.
-
-```bash
-git clone https://github.com/chmodshubham/proto-testbed proto-testbed
-cd proto-testbed
-```
-
-## Step 3: Configure env.sh
-
-**vm1:** open `env.sh` and update the VM credentials and connection details to match your environment:
+`run.sh` generates the SSH keys on first run, syncs them (and the repo) to vm2, starts the testbed `sshd`, and loops connections until you press Ctrl-C.
 
 ```bash
-export VM2_USER=ubuntu
-export VM2_HOST=<vm2-hostname>
-export VM2_REPO="/home/ubuntu/proto-testbed"
-export VM1_IP=<vm1-ip>
-export VM2_IP=<vm2-ip>
-export VM2_PASSWORD=""   # set if vm2 system SSH requires password auth
+./run.sh --proto ssh --mode classical   # curve25519-sha256 KEX
+./run.sh --proto ssh --mode pqc         # mlkem768x25519-sha256 KEX
+./run.sh --proto ssh --mode all         # both modes in parallel
 ```
 
-Sync to vm2:
+Each connection prints one row: timestamp, connection number, KEX algorithm, cipher, verify code. `Verify: 0` means authentication succeeded.
 
-```bash
-source env.sh
-rsync -a env.sh "$VM2_USER@$VM2_HOST:$VM2_REPO/"
-```
+## Run the orchestrator directly
 
-## Step 4: Build OpenSSH 10.3p1
+`run.sh` is the recommended entry point. Running the orchestrator directly skips dependency installs, key generation, and the vm2 sync, so you have to do those steps manually first.
 
-See [docs/openssh.md](../../docs/openssh.md) for the full build and smoke test on both VMs.
+1. Generate the keys on **vm1**:
 
-## Step 5: Generate PKI
+   ```bash
+   source env.sh
+   ./pki/gen.sh --proto ssh
+   ```
 
-Run on **vm1** only, from repo root.
+   This produces:
 
-SSH uses raw key files (ED25519), not X.509 certificates.
+   ```
+   pki/out/ssh/classical/host-key  host-key.pub  client-key  client-key.pub  authorized_keys
+   pki/out/ssh/pqc/        (same set)
+   ```
 
-```bash
-source env.sh
-./pki/gen.sh --proto ssh
-```
+2. Sync the keys to **vm2**:
 
-Output:
+   ```bash
+   rsync -a --mkpath pki/out/ssh/classical/ "$VM2_USER@$VM2_HOST:$VM2_REPO/pki/out/ssh/classical/"
+   rsync -a --mkpath pki/out/ssh/pqc/       "$VM2_USER@$VM2_HOST:$VM2_REPO/pki/out/ssh/pqc/"
+   ```
 
-```
-pki/out/ssh/classical/host-key
-pki/out/ssh/classical/host-key.pub
-pki/out/ssh/classical/client-key
-pki/out/ssh/classical/client-key.pub
-pki/out/ssh/classical/authorized_keys
-pki/out/ssh/pqc/   (same set)
-```
+   If `VM2_PASSWORD` is set, prefix each rsync with `RSYNC_RSH="sshpass -p '$VM2_PASSWORD' ssh"`.
 
-## Step 6: Sync keys to vm2
+3. Verify on **vm2** (run from repo root; both must list the files):
 
-The orchestrator syncs keys automatically at startup. To sync manually:
+   ```bash
+   cd proto-testbed
+   source env.sh
 
-```bash
-source env.sh
+   ls pki/out/ssh/classical/host-key pki/out/ssh/classical/authorized_keys
+   ls pki/out/ssh/pqc/host-key       pki/out/ssh/pqc/authorized_keys
+   ```
 
-rsync -a --mkpath \
-    pki/out/ssh/classical/ \
-    "$VM2_USER@$VM2_HOST:$VM2_REPO/pki/out/ssh/classical/"
+4. Start the orchestrator:
 
-rsync -a --mkpath \
-    pki/out/ssh/pqc/ \
-    "$VM2_USER@$VM2_HOST:$VM2_REPO/pki/out/ssh/pqc/"
-```
+   ```bash
+   bash orchestrator/ssh.sh classical
+   bash orchestrator/ssh.sh pqc
+   ```
 
-If `VM2_PASSWORD` is set, prefix rsync commands with:
+## Flags reference
 
-```bash
-RSYNC_RSH="sshpass -p '$VM2_PASSWORD' ssh" rsync ...
-```
-
-Verify on **vm2**:
-
-```bash
-ls pki/out/ssh/classical/host-key pki/out/ssh/classical/authorized_keys
-```
-
-## Step 7: Start server and run traffic
-
-Run on **vm1** from repo root. Starts sshd on vm2, waits until ready, then loops connections. Press Ctrl-C to stop.
-
-```bash
-source env.sh
-
-bash orchestrator/ssh.sh classical   # ED25519 key, curve25519-sha256 KEX
-bash orchestrator/ssh.sh pqc         # ED25519 key, mlkem768x25519-sha256 KEX
-```
-
-Or via run.sh:
-
-```bash
-./run.sh --proto ssh --mode classical
-./run.sh --proto ssh --mode pqc
-```
-
-Each connection prints one row: timestamp, protocol, connection number, KEX algorithm, cipher suite, result. `Verify: 0` means authentication succeeded.
-
-## Key flags
+OpenSSH client flags used by `protocols/ssh/client.sh`:
 
 | Flag                          | Description                                  |
 | ----------------------------- | -------------------------------------------- |
@@ -157,14 +88,3 @@ Each connection prints one row: timestamp, protocol, connection number, KEX algo
 | `-o BatchMode=yes`            | Disable interactive prompts                  |
 | `-v`                          | Verbose output (shows negotiated algorithms) |
 | `-Q kex`                      | List supported KEX algorithms                |
-
-KEX algorithms: `curve25519-sha256` (classical), `mlkem768x25519-sha256` (PQC hybrid, ML-KEM-768 + X25519, default in OpenSSH 10.0+).
-
-## Verifying PQC negotiated
-
-```bash
-source env.sh
-bash protocols/ssh/client.sh pqc 2>&1 | grep 'kex: algorithm'
-```
-
-Expected: `debug1: kex: algorithm: mlkem768x25519-sha256`

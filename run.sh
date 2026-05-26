@@ -122,14 +122,6 @@ if [[ $needs_openssh -eq 1 ]]; then
         log ERROR "Build it first. See protocols/ssh/README.md."
         exit 1
     fi
-    SSH_KEYS_MISSING=0
-    [[ ! -f "${REPO_ROOT}/pki/out/ssh/classical/client-key" ]] && SSH_KEYS_MISSING=1
-    [[ ! -f "${REPO_ROOT}/pki/out/ssh/pqc/client-key"       ]] && SSH_KEYS_MISSING=1
-    if [[ $SSH_KEYS_MISSING -eq 1 ]]; then
-        log ERROR "SSH keys not found under pki/out/ssh/."
-        log ERROR "Generate them first: ./pki/gen.sh --proto ssh"
-        exit 1
-    fi
 fi
 
 if [[ $needs_strongswan -eq 1 ]]; then
@@ -137,18 +129,6 @@ if [[ $needs_strongswan -eq 1 ]]; then
     if [[ ! -x "$SWAN" ]]; then
         log ERROR "strongSwan not found at: ${SWAN}"
         log ERROR "Build it first. See protocols/ipsec/README.md Steps 1-4."
-        exit 1
-    fi
-    PKI="${REPO_ROOT}/os-lib/install/strongswan/bin/pki"
-    IPSEC_CERTS_MISSING=0
-    [[ ! -f "${REPO_ROOT}/pki/out/ipsec/classical/server-cert.pem" ]] && IPSEC_CERTS_MISSING=1
-    [[ ! -f "${REPO_ROOT}/pki/out/ipsec/pqc/server-cert.pem"       ]] && IPSEC_CERTS_MISSING=1
-    if [[ $IPSEC_CERTS_MISSING -eq 1 ]]; then
-        log ERROR "IPsec certificates not found under pki/out/ipsec/."
-        log ERROR "Generate them first: ./pki/gen.sh --proto ipsec"
-        log ERROR "Then sync to vm2:"
-        log ERROR "  rsync -a --mkpath pki/out/ca/ipsec/ \$VM2_USER@\$VM2_HOST:\$VM2_REPO/pki/out/ca/ipsec/"
-        log ERROR "  rsync -a --mkpath pki/out/ipsec/   \$VM2_USER@\$VM2_HOST:\$VM2_REPO/pki/out/ipsec/"
         exit 1
     fi
 fi
@@ -214,9 +194,54 @@ esac
 
 PREPARED_PROTOS=()
 
+# pki_marker <proto> <mode> — print the path that proves PKI is generated for proto/mode.
+pki_marker() {
+    case "$1" in
+        ssh) printf '%s/pki/out/ssh/%s/client-key' "$REPO_ROOT" "$2" ;;
+        *)   printf '%s/pki/out/%s/%s/server-cert.pem' "$REPO_ROOT" "$1" "$2" ;;
+    esac
+}
+
+# ensure_pki <proto> — for each mode this run needs, check the marker file and
+# generate that single (proto, mode) pair if missing. Skips silently when a
+# marker is already present, so partial state (e.g. classical present, pqc
+# missing under --mode all) regenerates only the missing pair. Fails fast on
+# invalid args or gen.sh errors.
+#
+# Modes considered come from the global $MODE flag. DTLS has no pqc mode, so
+# it always resolves to classical here.
+ensure_pki() {
+    local proto="$1"
+    local m marker modes=()
+    case "$MODE" in
+        classical) modes=(classical) ;;
+        pqc)       modes=(pqc) ;;
+        all)       modes=(classical pqc) ;;
+    esac
+    if [[ "$proto" == "dtls" ]]; then
+        modes=(classical)
+    fi
+    for m in "${modes[@]}"; do
+        marker="$(pki_marker "$proto" "$m")"
+        if [[ -f "$marker" ]]; then
+            continue
+        fi
+        log INFO "Generating ${proto}/${m} PKI on vm1 ..."
+        if ! "${REPO_ROOT}/pki/gen.sh" --proto "$proto" --mode "$m" >/dev/null; then
+            log ERROR "Failed to generate ${proto}/${m} PKI. Check pki/gen.sh output."
+            exit 1
+        fi
+        if [[ ! -f "$marker" ]]; then
+            log ERROR "PKI marker still missing after generation: ${marker}"
+            exit 1
+        fi
+    done
+}
+
 prepare_proto() {
     local proto="$1"
     resolve_vm_config "$proto"
+    ensure_pki "$proto"
 
     log INFO "Syncing repo to ${VM2_USER}@${VM2_HOST}:${VM2_REPO} (${proto}) ..."
     rsync_vm2 -a --delete \
