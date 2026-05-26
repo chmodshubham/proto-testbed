@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# protocols/mtls/client.sh — mTLS 1.3 client on vm1
+# protocols/mtls/client.sh — mTLS client on vm1 (TLS 1.2 for classical, TLS 1.3 for pqc)
 #
 # Usage: ./protocols/mtls/client.sh [classical|pqc]
 # Run from repo root.
@@ -14,9 +14,19 @@ SERVER_IP="${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}"
 
 source "${REPO_ROOT}/protocols/mtls/config.sh"
 
+if [[ "$MODE" == "classical" ]]; then
+    TLS_VER_FLAG="-tls1_2"
+    CIPHER_FLAG="-cipher"
+    TLS_VER_LABEL="TLS 1.2 (mutual)"
+else
+    TLS_VER_FLAG="-tls1_3"
+    CIPHER_FLAG="-ciphersuites"
+    TLS_VER_LABEL="TLS 1.3 (mutual)"
+fi
+
 log INFO "Mode:               $MODE"
 log INFO "Server address:     ${SERVER_IP}:${MTLS_PORT}"
-log INFO "Protocol:           TLS 1.3 (mutual)"
+log INFO "Protocol:           $TLS_VER_LABEL"
 log INFO "CA certificate:     $CAFILE"
 log INFO "Client certificate: $CLIENT_CERT"
 log INFO "KEX groups:         $MTLS_GROUPS"
@@ -31,9 +41,9 @@ exec "$OSSL" s_client \
     -partial_chain \
     -cert    "${CLIENT_CERT}" \
     -key     "${CLIENT_KEY}" \
-    -tls1_3 \
+    "$TLS_VER_FLAG" \
     -groups  "${MTLS_GROUPS}" \
-    -ciphersuites "${CIPHERS}" \
+    "$CIPHER_FLAG" "${CIPHERS}" \
     -sigalgs "${SIGALGS}" \
     -verify 2 \
     -keylogfile "/tmp/mtls-${MODE}.keys"

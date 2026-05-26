@@ -44,7 +44,7 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
     log INFO "Starting QUIC server (${MODE}) on ${VM2_HOST} ..."
 fi
 
-ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF
+ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
     pkill -f "protocols/quic/server" > /dev/null 2>&1 && sleep 0.2 || true
     cd ${VM2_REPO}
     source env.sh
@@ -64,9 +64,10 @@ for i in $(seq 1 20); do
 done
 traffic_header
 
+set +m
 COUNT=0
 while [[ $_STOP -eq 0 ]]; do
-    RESULT=$(timeout 10 "${REPO_ROOT}/protocols/quic/client" "$MODE" 2>&1 || true)
+    RESULT=$(timeout 10 "${REPO_ROOT}/protocols/quic/client" "$MODE" 2>&1 || true) 2>/dev/null
     [[ $_STOP -eq 0 ]] || break
     COUNT=$((COUNT + 1))
     print_row "$RESULT" "$COUNT"

@@ -42,14 +42,14 @@ rsync_vm2 -q \
     "${SSH_HOST_KEY}.pub" \
     "${SSH_CLIENT_KEY}.pub" \
     "${VM2_USER}@${VM2_HOST}:${VM2_REPO}/pki/out/ssh/${MODE}/"
-ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF
+ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
     chmod 600 ${VM2_REPO}/pki/out/ssh/${MODE}/host-key
     cp ${VM2_REPO}/pki/out/ssh/${MODE}/client-key.pub ${VM2_REPO}/pki/out/ssh/${MODE}/authorized_keys
 EOF
 
 if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then log INFO "Starting SSH server (${MODE}) on ${VM2_HOST} ..."; fi
 
-ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF
+ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
     sudo pkill -f "sshd.*${SSH_PORT}" > /dev/null 2>&1 && sleep 0.2 || true
     # Unlock ubuntu account if locked (shadow entry '!') so pubkey auth succeeds with UsePAM no
     if sudo grep -q '^ubuntu:!' /etc/shadow 2>/dev/null; then
@@ -61,9 +61,11 @@ ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF
 EOF
 
 wait_tcp "${SSH_PORT}" "/tmp/ssh-server-${MODE}.log"
+check_vm1_reach "${SSH_PORT}"
 
 traffic_header
 
+set +m
 COUNT=0
 while [[ $_STOP -eq 0 ]]; do
     RESULT=$(timeout 10 "$SSH_BIN" \
@@ -75,7 +77,7 @@ while [[ $_STOP -eq 0 ]]; do
         -o BatchMode=yes \
         -v \
         "${VM2_USER}@${VM2_IP}" \
-        exit 2>&1 || true)
+        'sleep 2' 2>&1 || true) 2>/dev/null
 
     [[ $_STOP -eq 0 ]] || break
     COUNT=$((COUNT + 1))

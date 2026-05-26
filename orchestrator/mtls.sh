@@ -40,7 +40,7 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
     log INFO  "Starting mTLS server (${MODE}) on ${VM2_HOST} ..."
 fi
 
-ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF
+ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
     pkill -f "s_server.*${MTLS_PORT}" > /dev/null 2>&1 && sleep 0.2 || true
     cd ${VM2_REPO}
     source env.sh
@@ -48,20 +48,30 @@ ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF
 EOF
 
 wait_tcp "${MTLS_PORT}" "/tmp/mtls-server.log"
+check_vm1_reach "${MTLS_PORT}"
+if [[ "$MODE" == "classical" ]]; then
+    TLS_VER_FLAG="-tls1_2"
+    CIPHER_FLAG="-cipher"
+else
+    TLS_VER_FLAG="-tls1_3"
+    CIPHER_FLAG="-ciphersuites"
+fi
+
 traffic_header
 
+set +m
 COUNT=0
 while [[ $_STOP -eq 0 ]]; do
-    RESULT=$(printf 'GET / HTTP/1.0\r\n\r\n' | \
-        timeout 5 "$OSSL" s_client \
+    RESULT=$({ printf 'GET / HTTP/1.0\r\n\r\n'; sleep 2; } 2>/dev/null | \
+        timeout 10 "$OSSL" s_client \
             -connect      "${SERVER_IP}:${MTLS_PORT}" \
             -CAfile       "${CAFILE}" \
             -partial_chain \
             -cert         "${CLIENT_CERT}" \
             -key          "${CLIENT_KEY}" \
-            -tls1_3 \
+            "$TLS_VER_FLAG" \
             -groups       "${MTLS_GROUPS}" \
-            -ciphersuites "${CIPHERS}" \
+            "$CIPHER_FLAG" "${CIPHERS}" \
             -sigalgs      "${SIGALGS}" \
             -verify 2 \
             2>&1 || true)

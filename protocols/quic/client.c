@@ -168,6 +168,7 @@ int main(int argc, char *argv[]) {
             data_rc = 1;
         }
     }
+    sleep(2);
     SSL_shutdown(ssl);
     SSL_free(ssl);
     SSL_CTX_free(ctx);

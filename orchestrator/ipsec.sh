@@ -189,6 +189,7 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then log INFO "Client charon ready.";
 
 traffic_header
 
+set +m
 COUNT=0
 while [[ $_STOP -eq 0 ]]; do
     sw --initiate --child "${IPSEC_CONN}" --timeout 15 > /dev/null 2>&1 || true
@@ -217,6 +218,7 @@ while [[ $_STOP -eq 0 ]]; do
     printf "%-21s %-16s %-7s %-28s %-36s %s\n" \
         "$TS" "${PROTO_TAG:-ipsec}" "#${COUNT}" "${IKE_GRP:--}" "${ESP:--}" "$VERIFY"
 
+    sleep 2
     sw --terminate --ike "${IPSEC_CONN}" > /dev/null 2>&1 || true
     sleep 0.3
 done

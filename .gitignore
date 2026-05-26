@@ -5,5 +5,7 @@ pki/out/
 *.keys
 .claude/
 .vscode/
-client
-server
+protocols/dtls/client
+protocols/dtls/server
+protocols/quic/client
+protocols/quic/server

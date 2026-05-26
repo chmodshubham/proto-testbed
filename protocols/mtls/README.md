@@ -1,11 +1,11 @@
-# mTLS 1.3 Setup
+# mTLS Setup
 
 vm1 = client, vm2 = server. Servers run on vm2; traffic is driven from vm1.
 
-| Mode      | Server cert | Client cert | KEX                | Cipher                       | Port |
-| --------- | ----------- | ----------- | ------------------ | ---------------------------- | ---- |
-| Classical | ECDSA P-384 | Ed448       | X448               | TLS_CHACHA20_POLY1305_SHA256 | 4435 |
-| PQC       | ML-DSA-87   | ML-DSA-44   | SecP384r1MLKEM1024 | TLS_AES_256_GCM_SHA384       | 4436 |
+| Mode      | Version | Server cert | Client cert | KEX                | Cipher                        | Port |
+| --------- | ------- | ----------- | ----------- | ------------------ | ----------------------------- | ---- |
+| Classical | 1.2     | ECDSA P-384 | Ed448       | X448               | ECDHE-ECDSA-CHACHA20-POLY1305 | 4435 |
+| PQC       | 1.3     | ML-DSA-87   | ML-DSA-44   | SecP384r1MLKEM1024 | TLS_AES_256_GCM_SHA384        | 4436 |
 
 All commands run from the repo root. Every terminal session starts with:
 
@@ -44,7 +44,7 @@ sudo apt-get install -y build-essential cmake pkg-config perl rsync
 Run on **both VMs**.
 
 ```bash
-git clone <repo-url> proto-testbed
+git clone https://github.com/chmodshubham/proto-testbed proto-testbed
 cd proto-testbed
 ```
 
@@ -138,12 +138,15 @@ Each connection prints one row: timestamp, connection number, KEX group, cipher 
 
 ## Key flags
 
-| Flag              | Description                                  |
-| ----------------- | -------------------------------------------- |
-| `-tls1_3`         | TLS 1.3 only                                 |
-| `-groups <list>`  | Colon-separated KEX groups                   |
-| `-sigalgs <list>` | Colon-separated signature algorithms         |
-| `-Verify <depth>` | Require and verify client cert (server only) |
-| `-cert / -key`    | Client certificate and key (client only)     |
-| `-WWW`            | HTTP-like GET mode (server)                  |
-| `-keylogfile`     | NSS keylog for Wireshark decryption          |
+| Flag              | Description                                          |
+| ----------------- | ---------------------------------------------------- |
+| `-tls1_2`         | TLS 1.2 only (classical mode)                        |
+| `-tls1_3`         | TLS 1.3 only (PQC mode)                              |
+| `-cipher <list>`  | Colon-separated cipher suites (TLS 1.2, classical)   |
+| `-ciphersuites`   | Colon-separated cipher suites (TLS 1.3, PQC)         |
+| `-groups <list>`  | Colon-separated KEX groups                           |
+| `-sigalgs <list>` | Colon-separated signature algorithms                 |
+| `-Verify <depth>` | Require and verify client cert (server only)         |
+| `-cert / -key`    | Client certificate and key (client only)             |
+| `-WWW`            | HTTP-like GET mode (server)                          |
+| `-keylogfile`     | NSS keylog for Wireshark decryption                  |

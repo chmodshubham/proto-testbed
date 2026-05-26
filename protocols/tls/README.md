@@ -1,11 +1,11 @@
-# TLS 1.3 Setup
+# TLS Setup
 
 vm1 = client, vm2 = server. Servers run on vm2; traffic is driven from vm1.
 
-| Mode      | Cert        | KEX            | Port |
-| --------- | ----------- | -------------- | ---- |
-| Classical | ECDSA P-256 | X25519         | 4433 |
-| PQC       | ML-DSA-65   | X25519MLKEM768 | 4434 |
+| Mode      | Version | Cert        | KEX            | Port |
+| --------- | ------- | ----------- | -------------- | ---- |
+| Classical | 1.2     | ECDSA P-256 | X25519         | 4433 |
+| PQC       | 1.3     | ML-DSA-65   | X25519MLKEM768 | 4434 |
 
 All commands run from the repo root. Every terminal session starts with:
 
@@ -42,7 +42,7 @@ sudo apt-get install -y build-essential cmake pkg-config perl rsync
 Run on **both VMs**.
 
 ```bash
-git clone <repo-url> proto-testbed
+git clone https://github.com/chmodshubham/proto-testbed proto-testbed
 cd proto-testbed
 ```
 
@@ -139,14 +139,17 @@ Each connection prints one row: timestamp, connection number, KEX group, cipher 
 
 ## Key flags
 
-| Flag              | Description                          |
-| ----------------- | ------------------------------------ |
-| `-tls1_3`         | TLS 1.3 only                         |
-| `-groups <list>`  | Colon-separated KEX groups           |
-| `-sigalgs <list>` | Colon-separated signature algorithms |
-| `-WWW`            | HTTP-like GET mode (server)          |
-| `-keylogfile`     | NSS keylog for Wireshark decryption  |
-| `-Verify <depth>` | Require client cert (server only)    |
+| Flag              | Description                                          |
+| ----------------- | ---------------------------------------------------- |
+| `-tls1_2`         | TLS 1.2 only (classical mode)                        |
+| `-tls1_3`         | TLS 1.3 only (PQC mode)                              |
+| `-cipher <list>`  | Colon-separated cipher suites (TLS 1.2, classical)   |
+| `-ciphersuites`   | Colon-separated cipher suites (TLS 1.3, PQC)         |
+| `-groups <list>`  | Colon-separated KEX groups                           |
+| `-sigalgs <list>` | Colon-separated signature algorithms                 |
+| `-WWW`            | HTTP-like GET mode (server)                          |
+| `-keylogfile`     | NSS keylog for Wireshark decryption                  |
+| `-Verify <depth>` | Require client cert (server only)                    |
 
 Groups: `X25519` (0x001D), `X25519MLKEM768` (0x11EC), `SecP256r1MLKEM768` (0x11EB).
 Sigalgs: PQC = `mldsa44 mldsa65 mldsa87`. Classical = `ecdsa_secp256r1_sha256`.

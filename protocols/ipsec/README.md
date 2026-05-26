@@ -72,7 +72,7 @@ sudo apt-get install -y build-essential pkg-config flex bison libssl-dev
 Run on **both VMs**.
 
 ```bash
-git clone <repo-url> proto-testbed
+git clone https://github.com/chmodshubham/proto-testbed proto-testbed
 cd proto-testbed
 ```
 

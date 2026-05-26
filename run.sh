@@ -329,23 +329,25 @@ print_shared_header() {
 # prefix_run <label> <proto> <mode> — run orchestrator with TESTBED_NO_HEADER=1 (header already printed)
 # Runs orchestrator as a direct child (not inside a pipeline) so signals reach it.
 prefix_run() {
+    set +m
     local label="$1" proto="$2" mode="$3"
     local fifo orch_pid
     fifo="$(mktemp -u /tmp/run-fifo-XXXXXX)"
     mkfifo "$fifo"
-    cat < "$fifo" &
+    cat < "$fifo" 2>/dev/null &
     local cat_pid=$!
     disown "$cat_pid" 2>/dev/null || true
     TESTBED_NO_HEADER=1 bash "${REPO_ROOT}/orchestrator/${proto}.sh" "$mode" < /dev/null > "$fifo" 2>&1 &
     orch_pid=$!
     # Forward SIGTERM/SIGINT to orchestrator so its cleanup trap fires
-    trap "kill -TERM $orch_pid 2>/dev/null || true" TERM INT
+    trap "kill -TERM $orch_pid 2>/dev/null || true; kill -TERM $cat_pid 2>/dev/null || true" TERM INT
     wait "$orch_pid" 2>/dev/null || true
     local rc=$?
+    kill "$cat_pid" 2>/dev/null || true
     wait "$cat_pid" 2>/dev/null || true
     rm -f "$fifo"
     return $rc
-}
+} 2>/dev/null
 
 run_sequential() {
     local proto="$1" mode="$2"
@@ -361,6 +363,7 @@ run_sequential() {
 # Main
 # ---------------------------------------------------------------------------
 
+set +m
 if [[ "$PROTO" == "all" && "$MODE" == "all" ]]; then
     log INFO "IPsec: pqc mode only. Parallel classical+pqc unsupported: charon holds the kernel XFRM socket and policy, blocking a second instance."
     print_shared_header

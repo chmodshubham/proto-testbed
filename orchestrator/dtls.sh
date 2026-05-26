@@ -44,7 +44,7 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
     log INFO  "Starting DTLS server (${MODE}) on ${VM2_HOST} ..."
 fi
 
-ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF
+ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
     pkill -f "protocols/dtls/server" > /dev/null 2>&1 && sleep 0.2 || true
     cd ${VM2_REPO}
     source env.sh
@@ -54,9 +54,10 @@ EOF
 wait_proc "protocols/dtls/server" "/tmp/dtls-server.log"
 traffic_header
 
+set +m
 COUNT=0
 while [[ $_STOP -eq 0 ]]; do
-    RESULT=$(timeout 5 "${REPO_ROOT}/protocols/dtls/client" "$MODE" 2>&1 || true)
+    RESULT=$(timeout 10 "${REPO_ROOT}/protocols/dtls/client" "$MODE" 2>&1 || true) 2>/dev/null
     [[ $_STOP -eq 0 ]] || break
     COUNT=$((COUNT + 1))
     print_row "$RESULT" "$COUNT"
