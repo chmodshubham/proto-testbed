@@ -28,7 +28,7 @@ cleanup() {
     _STOP=1
     stty echo 2>/dev/null || true
     ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
-        "pkill -f 'protocols/quic/server' 2>/dev/null || true" 2>/dev/null || true
+        "pkill -f 'protocols/quic/server ${MODE}' 2>/dev/null || true" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
@@ -47,7 +47,7 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
 fi
 
 ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
-    pkill -f "protocols/quic/server" > /dev/null 2>&1 && sleep 0.2 || true
+    pkill -f "protocols/quic/server ${MODE}" > /dev/null 2>&1 && sleep 0.2 || true
     cd ${VM2_REPO}
     source env.sh
     nohup bash protocols/quic/server.sh ${MODE} > /tmp/quic-server-${MODE}.log 2>&1 &
@@ -73,4 +73,5 @@ while [[ $_STOP -eq 0 ]]; do
     [[ $_STOP -eq 0 ]] || break
     COUNT=$((COUNT + 1))
     print_row "$RESULT" "$COUNT"
+    sleep 1
 done

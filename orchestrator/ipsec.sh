@@ -40,8 +40,6 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then log INFO "Starting IPsec server 
 
 ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF
     sudo pkill -f charon 2>/dev/null || true
-    pkill -f "protocols/quic/server"  2>/dev/null || true
-    pkill -f "protocols/dtls/server"  2>/dev/null || true
     sleep 0.5
     cd ${VM2_REPO}
     source env.sh

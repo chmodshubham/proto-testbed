@@ -24,7 +24,7 @@ cleanup() {
     _STOP=1
     stty echo 2>/dev/null || true
     ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
-        "pkill -f 'protocols/dtls/server' 2>/dev/null || true" 2>/dev/null || true
+        "pkill -f 'protocols/dtls/server ${MODE}' 2>/dev/null || true" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 SERVER_IP="${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}"
@@ -45,13 +45,23 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
 fi
 
 ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
-    pkill -f "protocols/dtls/server" > /dev/null 2>&1 && sleep 0.2 || true
+    pkill -f "protocols/dtls/server ${MODE}" > /dev/null 2>&1 && sleep 0.2 || true
     cd ${VM2_REPO}
     source env.sh
     nohup bash protocols/dtls/server.sh ${MODE} > /tmp/dtls-server.log 2>&1 &
 EOF
 
-wait_proc "protocols/dtls/server" "/tmp/dtls-server.log"
+for i in $(seq 1 20); do
+    if ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
+        "grep -q 'Server is ready' /tmp/dtls-server.log 2>/dev/null" 2>/dev/null; then
+        if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
+            log INFO "Server is ready and accepting connections."
+        fi
+        break
+    fi
+    [[ $i -eq 20 ]] && { log ERROR "Server failed to start within 10s. Check /tmp/dtls-server.log on ${VM2_HOST}."; exit 1; }
+    sleep 0.5
+done
 traffic_header
 
 set +m
@@ -61,4 +71,5 @@ while [[ $_STOP -eq 0 ]]; do
     [[ $_STOP -eq 0 ]] || break
     COUNT=$((COUNT + 1))
     print_row "$RESULT" "$COUNT"
+    sleep 1
 done
