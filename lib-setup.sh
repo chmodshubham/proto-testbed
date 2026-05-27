@@ -166,11 +166,13 @@ if [[ "$SKIP_STRONGSWAN" -eq 0 ]]; then
     log INFO "Verifying strongSwan ..."
     [[ -x "$SWAN_SWANCTL" ]] || die "swanctl not found: ${SWAN_SWANCTL}"
     [[ -x "$SWAN_PKI" ]]     || die "pki not found: ${SWAN_PKI}"
-    "$SWAN_SWANCTL" --version >/dev/null 2>&1 || die "swanctl --version failed."
-    "$SWAN_PKI"     --version >/dev/null 2>&1 || die "pki --version failed."
-    "$SWAN_SWANCTL" --list-algs 2>/dev/null | grep -qi "mlkem" \
-        || die "ML_KEM_768 not found in swanctl --list-algs. The ml plugin did not build."
-    log INFO "strongSwan OK: ML_KEM_768 present."
+    "$SWAN_PKI" --help 2>&1 | grep -qi "strongswan" \
+        || die "pki --help output unexpected. Binary may be broken."
+    # swanctl --version and --list-algs connect to charon VICI socket; verify ml plugin by file instead.
+    SWAN_PLUGIN_DIR="${SWAN_PREFIX}/lib/ipsec/plugins"
+    [[ -f "${SWAN_PLUGIN_DIR}/libstrongswan-ml.so" ]] \
+        || die "ml plugin not found: ${SWAN_PLUGIN_DIR}/libstrongswan-ml.so. Re-run without --skip-strongswan."
+    log INFO "strongSwan OK: ml plugin present."
 fi
 
 # ---------------------------------------------------------------------------
