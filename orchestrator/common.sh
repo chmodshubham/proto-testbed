@@ -73,6 +73,16 @@ check_ossl() {
     fi
 }
 
+# has_vm_config <proto> — return 0 if the minimum per-protocol VM vars are set, 1 otherwise.
+# Use before resolve_vm_config when iterating all protocols so unconfigured ones are skipped.
+has_vm_config() {
+    local proto="$1"
+    local p
+    p="$(printf '%s' "$proto" | tr '[:lower:]' '[:upper:]')"
+    local v1="${p}_VM1_IP" v2ip="${p}_VM2_IP" v2user="${p}_VM2_USER" v2host="${p}_VM2_HOST" v2repo="${p}_VM2_REPO"
+    [[ -n "${!v1:-}" && -n "${!v2ip:-}" && -n "${!v2user:-}" && -n "${!v2host:-}" && -n "${!v2repo:-}" ]]
+}
+
 # resolve_vm_config <proto> — load the per-protocol VM variables for <proto> into
 # the plain VM1_IP / VM2_IP / VM2_USER / VM2_HOST / VM2_REPO / VM2_PASSWORD names
 # the rest of the testbed reads. <proto> is one of: tls mtls dtls quic ipsec ssh.

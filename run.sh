@@ -270,6 +270,10 @@ prepare_proto() {
 if [[ "$PROTO" == "all" ]]; then
     for _proto in tls mtls dtls quic ipsec ssh; do
         [[ "$_proto" == "dtls" && "$MODE" == "pqc" ]] && continue
+        if ! has_vm_config "$_proto"; then
+            log INFO "Skipping ${_proto}: VM config not set in env.sh."
+            continue
+        fi
         prepare_proto "$_proto"
     done
 else
@@ -386,24 +390,25 @@ set +m
 if [[ "$PROTO" == "all" && "$MODE" == "all" ]]; then
     log INFO "IPsec: pqc mode only. Parallel classical+pqc unsupported: charon holds the kernel XFRM socket and policy, blocking a second instance."
     print_shared_header
-    prefix_run "tls/classical"  tls  classical & BGPIDS+=($!)
-    prefix_run "tls/pqc"        tls  pqc       & BGPIDS+=($!)
-    prefix_run "mtls/classical" mtls classical & BGPIDS+=($!)
-    prefix_run "mtls/pqc"       mtls pqc       & BGPIDS+=($!)
-    prefix_run "quic/classical" quic classical & BGPIDS+=($!)
-    prefix_run "quic/pqc"       quic pqc       & BGPIDS+=($!)
-    prefix_run "dtls/classical" dtls classical & BGPIDS+=($!)
-    prefix_run "ipsec/pqc"      ipsec pqc      & BGPIDS+=($!)
-    prefix_run "ssh/classical"  ssh  classical & BGPIDS+=($!)
-    prefix_run "ssh/pqc"        ssh  pqc       & BGPIDS+=($!)
-    wait "${BGPIDS[@]}" 2>/dev/null || true
+    has_vm_config tls  && { prefix_run "tls/classical"  tls  classical & BGPIDS+=($!); }
+    has_vm_config tls  && { prefix_run "tls/pqc"        tls  pqc       & BGPIDS+=($!); }
+    has_vm_config mtls && { prefix_run "mtls/classical" mtls classical & BGPIDS+=($!); }
+    has_vm_config mtls && { prefix_run "mtls/pqc"       mtls pqc       & BGPIDS+=($!); }
+    has_vm_config quic && { prefix_run "quic/classical" quic classical & BGPIDS+=($!); }
+    has_vm_config quic && { prefix_run "quic/pqc"       quic pqc       & BGPIDS+=($!); }
+    has_vm_config dtls && { prefix_run "dtls/classical" dtls classical & BGPIDS+=($!); }
+    has_vm_config ipsec && { prefix_run "ipsec/pqc"     ipsec pqc      & BGPIDS+=($!); }
+    has_vm_config ssh  && { prefix_run "ssh/classical"  ssh  classical & BGPIDS+=($!); }
+    has_vm_config ssh  && { prefix_run "ssh/pqc"        ssh  pqc       & BGPIDS+=($!); }
+    [[ ${#BGPIDS[@]} -gt 0 ]] && wait "${BGPIDS[@]}" 2>/dev/null || true
 elif [[ "$PROTO" == "all" ]]; then
     print_shared_header
     for proto in tls mtls dtls quic ipsec ssh; do
         [[ "$proto" == "dtls" && "$MODE" == "pqc" ]] && continue
+        if ! has_vm_config "$proto"; then continue; fi
         prefix_run "${proto}/${MODE}" "$proto" "$MODE" & BGPIDS+=($!)
     done
-    wait "${BGPIDS[@]}" 2>/dev/null || true
+    [[ ${#BGPIDS[@]} -gt 0 ]] && wait "${BGPIDS[@]}" 2>/dev/null || true
 elif [[ "$MODE" == "all" && "$PROTO" == "dtls" ]]; then
     # DTLS has no PQC mode; classical only
     log INFO "DTLS does not support PQC (DTLS 1.2 only). Running classical only."
