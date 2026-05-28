@@ -68,7 +68,15 @@ CLIENT_PID_FILE="/tmp/charon-ipsec-client-${MODE}.pid"
 CLIENT_CONF_DIR="$(mktemp -d /tmp/ipsec-client-${MODE}-conf.XXXXXX)"
 
 _STOP=0
+# Fast signal handler: just flag the loop to stop. The first Ctrl-C interrupts a
+# blocking swanctl call; the loop's _STOP check then breaks immediately. Cleanup
+# runs once on EXIT, so a single Ctrl-C is enough to stop.
+request_stop() { _STOP=1; }
+
+_CLEANED=0
 client_cleanup() {
+    [[ $_CLEANED -eq 1 ]] && return
+    _CLEANED=1
     _STOP=1
     if [[ -f "$CLIENT_PID_FILE" ]]; then
         local pid
@@ -82,7 +90,8 @@ client_cleanup() {
     # also stop server on vm2
     ssh_vm2 "${VM2_USER}@${VM2_HOST}" "sudo pkill -f charon 2>/dev/null || true" 2>/dev/null || true
 }
-trap client_cleanup EXIT INT TERM
+trap request_stop INT TERM
+trap client_cleanup EXIT
 
 SWAN_CONF="${CLIENT_CONF_DIR}/strongswan.conf"
 cat > "$SWAN_CONF" <<SCONF

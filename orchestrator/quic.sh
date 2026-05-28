@@ -21,6 +21,11 @@ resolve_vm_config quic
 
 MODE="${1:-classical}"
 SERVER_IP="${NLB_HOST:-${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}}"
+# The C client uses inet_addr() and cannot resolve DNS names. Resolve here.
+if [[ "$SERVER_IP" =~ [a-zA-Z] ]]; then
+    SERVER_IP="$(getent hosts "$SERVER_IP" | awk '{print $1; exit}')"
+    [[ -z "$SERVER_IP" ]] && { log ERROR "Failed to resolve NLB_HOST to an IP."; exit 1; }
+fi
 export VM2_IP="$SERVER_IP"
 
 _STOP=0
