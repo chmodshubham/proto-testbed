@@ -61,7 +61,7 @@ EOF
 
 log_tty_state "after server start"
 wait_tcp "${SSH_PORT}" "/tmp/ssh-server-${MODE}.log"
-check_vm1_reach "${SSH_PORT}"
+check_vm1_reach "${SSH_PORT}" ssh
 
 log_tty_state "before traffic_header"
 traffic_header

@@ -48,7 +48,7 @@ EOF
 
 log_tty_state "after server start"
 wait_tcp "${MTLS_PORT}" "/tmp/mtls-server.log"
-check_vm1_reach "${MTLS_PORT}"
+check_vm1_reach "${MTLS_PORT}" mtls
 if [[ "$MODE" == "classical" ]]; then
     TLS_VER_FLAG="-tls1_2"
     CIPHER_FLAG="-cipher"

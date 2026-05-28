@@ -143,13 +143,16 @@ wait_tcp() {
     done
 }
 
-# check_vm1_reach <port> — verify vm1 can open a TCP connection to the connect target:port.
-# Target is NLB_HOST when set, otherwise VM2_IP.
+# check_vm1_reach <port> [proto] — verify vm1 can open a TCP connection to the connect target:port.
+# Target is NLB_HOST when set and proto is tls|mtls|quic; otherwise VM2_IP.
 # TCP only; UDP reachability cannot be confirmed without an app-level reply.
 # Honors TESTBED_SKIP_REACH=1 to skip entirely.
 check_vm1_reach() {
-    local port="$1"
-    local target="${NLB_HOST:-$VM2_IP}"
+    local port="$1" proto="${2:-}"
+    local target="$VM2_IP"
+    case "$proto" in
+        tls|mtls|quic) target="${NLB_HOST:-$VM2_IP}" ;;
+    esac
     [[ "${TESTBED_SKIP_REACH:-0}" == "1" ]] && return 0
     if ! timeout 3 bash -c "</dev/tcp/${target}/${port}" 2>/dev/null; then
         log ERROR "Cannot reach ${target}:${port}/tcp from vm1 within 3s."

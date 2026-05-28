@@ -47,7 +47,7 @@ EOF
 
 log_tty_state "after server start"
 wait_tcp "${TLS_PORT}" "/tmp/tls-server.log"
-check_vm1_reach "${TLS_PORT}"
+check_vm1_reach "${TLS_PORT}" tls
 log_tty_state "before traffic_header"
 traffic_header
 
