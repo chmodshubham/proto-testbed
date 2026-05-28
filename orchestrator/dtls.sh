@@ -22,7 +22,6 @@ MODE="${1:-classical}"
 _STOP=0
 cleanup() {
     _STOP=1
-    stty echo 2>/dev/null || true
     ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
         "pkill -f 'protocols/dtls/server ${MODE}' 2>/dev/null || true" 2>/dev/null || true
 }
@@ -40,7 +39,7 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
     log INFO  "Cipher suites:      $CIPHERS"
     log INFO  "Signature algs:     $SIGALGS"
     log INFO  "CA certificate:     $CAFILE"
-    echo ""
+    printf '\r\n'
     log INFO  "Starting DTLS server (${MODE}) on ${VM2_HOST} ..."
 fi
 
@@ -62,12 +61,15 @@ for i in $(seq 1 20); do
     [[ $i -eq 20 ]] && { log ERROR "Server failed to start within 10s. Check /tmp/dtls-server.log on ${VM2_HOST}."; exit 1; }
     sleep 0.5
 done
+log_tty_state "before traffic_header"
 traffic_header
 
 set +m
 COUNT=0
 while [[ $_STOP -eq 0 ]]; do
+    log_tty_state "loop top (#$((COUNT + 1)))"
     RESULT=$(timeout 10 "${REPO_ROOT}/protocols/dtls/client" "$MODE" 2>&1 || true) 2>/dev/null
+    log_tty_state "after dtls client"
     [[ $_STOP -eq 0 ]] || break
     COUNT=$((COUNT + 1))
     print_row "$RESULT" "$COUNT"

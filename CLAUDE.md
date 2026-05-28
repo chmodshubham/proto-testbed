@@ -197,9 +197,17 @@ log() { printf '%s [%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" "$2"; }
 log() { printf '[%s] %s\n' "$1" "$2"; }
 ```
 
-Usage: `log INFO "message"` / `log ERROR "message"`
+Usage: `log INFO "message"` / `log ERROR "message"` / `log DEBUG "message"`
 
-Log levels: `INFO` and `ERROR` only.
+Log levels: `INFO`, `ERROR`, and `DEBUG`.
+
+`DEBUG` lines are suppressed unless `TESTBED_DEBUG=1` is set in the environment.
+They carry diagnostic detail (e.g. terminal line-discipline state) and are off by
+default so normal output is unchanged.
+
+The orchestrator `common.sh` provides `log_tty_state <stage>`: a `DEBUG` helper
+that records the live tty flags (`onlcr`, `opost`, `icrnl`) at a stage boundary.
+Used to locate where terminal output corruption begins. Also gated on `TESTBED_DEBUG=1`.
 
 Output format: `YYYY-MM-DD HH:MM:SS [INFO] Message text.`
 

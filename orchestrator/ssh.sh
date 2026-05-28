@@ -21,7 +21,6 @@ PROTO_TAG="ssh/${MODE}"
 _STOP=0
 cleanup() {
     _STOP=1
-    stty echo 2>/dev/null || true
     ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
         "sudo pkill -f 'sshd.*${SSH_PORT}' 2>/dev/null || true" 2>/dev/null || true
 }
@@ -32,7 +31,7 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
     log INFO "Server address:     ${VM2_IP}:${SSH_PORT}"
     log INFO "KEX algorithms:     ${SSH_KEX}"
     log INFO "Client key:         ${SSH_CLIENT_KEY}"
-    echo ""
+    printf '\r\n'
     log INFO "Syncing PKI to ${VM2_HOST} ..."
 fi
 
@@ -60,14 +59,17 @@ ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
     sudo nohup bash protocols/ssh/server.sh ${MODE} > /tmp/ssh-server-${MODE}.log 2>&1 &
 EOF
 
+log_tty_state "after server start"
 wait_tcp "${SSH_PORT}" "/tmp/ssh-server-${MODE}.log"
 check_vm1_reach "${SSH_PORT}"
 
+log_tty_state "before traffic_header"
 traffic_header
 
 set +m
 COUNT=0
 while [[ $_STOP -eq 0 ]]; do
+    log_tty_state "loop top (#$((COUNT + 1)))"
     RESULT=$(timeout 10 "$SSH_BIN" \
         -p "${SSH_PORT}" \
         -i "${SSH_CLIENT_KEY}" \
@@ -78,6 +80,7 @@ while [[ $_STOP -eq 0 ]]; do
         -v \
         "${VM2_USER}@${VM2_IP}" \
         'sleep 2' 2>&1 || true) 2>/dev/null
+    log_tty_state "after ssh client"
 
     [[ $_STOP -eq 0 ]] || break
     COUNT=$((COUNT + 1))
@@ -91,7 +94,7 @@ while [[ $_STOP -eq 0 ]]; do
         res="FAILED"
     fi
 
-    printf "%-21s %-16s %-7s %-28s %-36s %s\n" \
+    printf "%-21s %-16s %-7s %-28s %-36s %s\r\n" \
         "$ts" "${PROTO_TAG}" "#${COUNT}" "${kex:-unknown}" "${ciph:-unknown}" "$res"
     sleep 1
 done

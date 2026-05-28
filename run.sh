@@ -266,6 +266,14 @@ prepare_proto() {
     PREPARED_PROTOS+=("$proto")
 }
 
+# Flush any leftover XFRM state from a previous crashed ipsec run.
+# The EXIT trap cannot fire on SIGKILL, so stale policies can block SSH to vm2.
+case "$PROTO" in ipsec|all)
+    sudo -n ip xfrm policy flush 2>/dev/null </dev/null || true
+    sudo -n ip xfrm state flush  2>/dev/null </dev/null || true
+    sudo -n pkill -f "libexec/ipsec/charon" 2>/dev/null </dev/null || true
+    ;; esac
+
 # prepare every protocol that will run, before launching traffic
 if [[ "$PROTO" == "all" ]]; then
     for _proto in tls mtls dtls quic ipsec ssh; do
@@ -280,7 +288,7 @@ else
     prepare_proto "$PROTO"
 fi
 log INFO "All targets prepared."
-echo ""
+printf '\r\n'
 
 # ---------------------------------------------------------------------------
 # Cleanup: stop all servers on vm2 and client processes on vm1 on exit
@@ -289,15 +297,10 @@ echo ""
 BGPIDS=()
 _CLEANED=0
 
-# Suppress terminal echo so keystrokes don't appear in output during traffic loops.
-# Restored in cleanup. Fails silently if not on a tty (e.g. piped output).
-stty -echo 2>/dev/null || true
-
 cleanup() {
     [[ $_CLEANED -eq 1 ]] && return
     _CLEANED=1
-    stty echo 2>/dev/null || true
-    echo ""
+    printf '\r\n'
     log INFO "Stopping ..."
     # Forward SIGTERM to all prefix_run subshells; each forwards to its orchestrator,
     # whose trap kills the remote server on vm2.
@@ -326,9 +329,9 @@ cleanup() {
         kill_vm2_ports "$cp"
     done
     # Local charon and XFRM state (ipsec client runs on vm1)
-    sudo pkill -f "libexec/ipsec/charon" 2>/dev/null || true
-    sudo ip xfrm policy flush 2>/dev/null || true
-    sudo ip xfrm state flush  2>/dev/null || true
+    sudo -n pkill -f "libexec/ipsec/charon" 2>/dev/null </dev/null || true
+    sudo -n ip xfrm policy flush 2>/dev/null </dev/null || true
+    sudo -n ip xfrm state flush  2>/dev/null </dev/null || true
     log INFO "Done."
 }
 
@@ -342,11 +345,11 @@ trap 'cleanup' EXIT
 
 # print_shared_header — print the single traffic table header used in parallel mode
 print_shared_header() {
-    echo ""
+    printf '\r\n'
     log INFO "Traffic loop running. Press Ctrl-C to stop."
-    echo ""
-    printf "%-21s %-16s %-7s %-28s %-36s %s\n" "Timestamp" "Protocol" "Conn" "Key Exchange" "Cipher Suite" "Verify"
-    printf "%-21s %-16s %-7s %-28s %-36s %s\n" "---------------------" "----------------" "-------" "----------------------------" "------------------------------------" "------"
+    printf '\r\n'
+    printf "%-21s %-16s %-7s %-28s %-36s %s\r\n" "Timestamp" "Protocol" "Conn" "Key Exchange" "Cipher Suite" "Verify"
+    printf "%-21s %-16s %-7s %-28s %-36s %s\r\n" "---------------------" "----------------" "-------" "----------------------------" "------------------------------------" "------"
 }
 
 # prefix_run <label> <proto> <mode> — run orchestrator with TESTBED_NO_HEADER=1 (header already printed)
@@ -377,7 +380,7 @@ run_sequential() {
     log INFO "================================================================"
     log INFO "Protocol: ${proto}  |  Mode: ${mode}"
     log INFO "================================================================"
-    echo ""
+    printf '\r\n'
     bash "${REPO_ROOT}/orchestrator/${proto}.sh" "$mode"
 }
 
@@ -412,7 +415,7 @@ elif [[ "$PROTO" == "all" ]]; then
 elif [[ "$MODE" == "all" && "$PROTO" == "dtls" ]]; then
     # DTLS has no PQC mode; classical only
     log INFO "DTLS does not support PQC (DTLS 1.2 only). Running classical only."
-    echo ""
+    printf '\r\n'
     run_sequential dtls classical
 elif [[ "$MODE" == "all" ]]; then
     print_shared_header

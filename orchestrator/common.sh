@@ -15,13 +15,25 @@ if [[ -z "${_PROTO_ENV_LOADED:-}" && -f "${REPO_ROOT}/env.sh" ]]; then
 fi
 
 log() {
+    # DEBUG lines are silent unless TESTBED_DEBUG=1 is set.
+    [[ "$1" == "DEBUG" && "${TESTBED_DEBUG:-0}" != "1" ]] && return 0
     local ts
     printf -v ts '%(%Y-%m-%d %H:%M:%S)T' -1
     if [[ -n "${PROTO_TAG:-}" ]]; then
-        printf '%-21s %-18s [%s] %s\n' "$ts" "[${PROTO_TAG}]" "$1" "$2"
+        printf '%-21s %-18s [%s] %s\r\n' "$ts" "[${PROTO_TAG}]" "$1" "$2"
     else
-        printf '%-21s [%s] %s\n' "$ts" "$1" "$2"
+        printf '%-21s [%s] %s\r\n' "$ts" "$1" "$2"
     fi
+}
+
+# log_tty_state <stage> — DEBUG log of the live tty line-discipline flags at a
+# stage boundary. Used to locate where output corruption (onlcr/opost cleared)
+# begins. Silent unless TESTBED_DEBUG=1.
+log_tty_state() {
+    [[ "${TESTBED_DEBUG:-0}" != "1" ]] && return 0
+    local flags
+    flags="$(stty -a 2>/dev/null | grep -oE -- '-?onlcr|-?opost|-?icrnl' | tr '\n' ' ' || true)"
+    log DEBUG "tty @ $1: ${flags:-no-tty}"
 }
 
 # check_openssh <readme_path>
@@ -34,21 +46,26 @@ check_openssh() {
     fi
 }
 
-# ssh_vm2 [ssh-args...] — ssh to vm2; uses sshpass when VM2_PASSWORD is set
+# ssh_vm2 [ssh-args...] — ssh to vm2; uses sshpass when VM2_PASSWORD is set.
+# ConnectTimeout bounds the TCP connect; ServerAliveInterval/CountMax abort a
+# session that stalls mid-command (e.g. an ipsec tunnel black-holing the route),
+# so cleanup paths can never hang. Caller -o flags come after and override these.
+SSH_TIMEOUT_OPTS=(-o ConnectTimeout=5 -o ServerAliveInterval=3 -o ServerAliveCountMax=2)
 ssh_vm2() {
     if [[ -n "${VM2_PASSWORD:-}" ]]; then
-        sshpass -p "$VM2_PASSWORD" ssh "$@"
+        sshpass -p "$VM2_PASSWORD" ssh "${SSH_TIMEOUT_OPTS[@]}" "$@"
     else
-        ssh "$@"
+        ssh "${SSH_TIMEOUT_OPTS[@]}" "$@"
     fi
 }
 
 # rsync_vm2 [rsync-args...] — rsync to/from vm2; uses sshpass when VM2_PASSWORD is set
 rsync_vm2() {
+    local rsh_opts="-o ConnectTimeout=5 -o ServerAliveInterval=3 -o ServerAliveCountMax=2"
     if [[ -n "${VM2_PASSWORD:-}" ]]; then
-        RSYNC_RSH="sshpass -p '$VM2_PASSWORD' ssh" rsync "$@"
+        RSYNC_RSH="sshpass -p '$VM2_PASSWORD' ssh $rsh_opts" rsync "$@"
     else
-        rsync "$@"
+        RSYNC_RSH="ssh $rsh_opts" rsync "$@"
     fi
 }
 
@@ -221,15 +238,14 @@ EOF
 
 # traffic_header — print column headers for the traffic table; suppressed when TESTBED_NO_HEADER=1
 traffic_header() {
-    stty -echo 2>/dev/null || true
     if [[ "${TESTBED_NO_HEADER:-0}" == "1" ]]; then
         return
     fi
-    echo ""
+    printf '\r\n'
     log INFO "Traffic loop running. Press Ctrl-C to stop."
-    echo ""
-    printf "%-21s %-16s %-7s %-28s %-36s %s\n" "Timestamp" "Protocol" "Conn" "Key Exchange" "Cipher Suite" "Verify"
-    printf "%-21s %-16s %-7s %-28s %-36s %s\n" "---------------------" "----------------" "-------" "----------------------------" "------------------------------------" "------"
+    printf '\r\n'
+    printf "%-21s %-16s %-7s %-28s %-36s %s\r\n" "Timestamp" "Protocol" "Conn" "Key Exchange" "Cipher Suite" "Verify"
+    printf "%-21s %-16s %-7s %-28s %-36s %s\r\n" "---------------------" "----------------" "-------" "----------------------------" "------------------------------------" "------"
 }
 
 # print_row <result_string> <count> — parse s_client/dtls-client output and print one table row
@@ -240,5 +256,5 @@ print_row() {
     kex=$(    printf '%s' "$result" | grep -oE 'Temp Key: [^,]+|group: \S+' | sed 's/^Temp Key: //;s/^group: //' | head -1 || true)
     ciph=$(   printf '%s' "$result" | grep -oE 'Cipher is \S+'               | sed 's/^Cipher is //'             | head -1 || true)
     verify=$( printf '%s' "$result" | grep -oE 'Verify return code: [0-9]+'  | sed 's/^Verify return code: //'   | head -1 || true)
-    printf "%-21s %-16s %-7s %-28s %-36s %s\n" "$ts" "${PROTO_TAG:-unknown}" "#${count}" "${kex:-unknown}" "${ciph:-unknown}" "${verify:-FAILED}"
+    printf "%-21s %-16s %-7s %-28s %-36s %s\r\n" "$ts" "${PROTO_TAG:-unknown}" "#${count}" "${kex:-unknown}" "${ciph:-unknown}" "${verify:-FAILED}"
 }

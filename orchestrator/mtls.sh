@@ -18,7 +18,6 @@ MODE="${1:-classical}"
 _STOP=0
 cleanup() {
     _STOP=1
-    stty echo 2>/dev/null || true
     ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
         "pkill -f 's_server.*${MTLS_PORT}' 2>/dev/null || true" 2>/dev/null || true
 }
@@ -36,7 +35,7 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
     log INFO  "Signature algs:     $SIGALGS"
     log INFO  "CA certificate:     $CAFILE"
     log INFO  "Client certificate: $CLIENT_CERT"
-    echo ""
+    printf '\r\n'
     log INFO  "Starting mTLS server (${MODE}) on ${VM2_HOST} ..."
 fi
 
@@ -47,6 +46,7 @@ ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
     nohup bash protocols/mtls/server.sh ${MODE} > /tmp/mtls-server.log 2>&1 &
 EOF
 
+log_tty_state "after server start"
 wait_tcp "${MTLS_PORT}" "/tmp/mtls-server.log"
 check_vm1_reach "${MTLS_PORT}"
 if [[ "$MODE" == "classical" ]]; then
@@ -57,11 +57,13 @@ else
     CIPHER_FLAG="-ciphersuites"
 fi
 
+log_tty_state "before traffic_header"
 traffic_header
 
 set +m
 COUNT=0
 while [[ $_STOP -eq 0 ]]; do
+    log_tty_state "loop top (#$((COUNT + 1)))"
     RESULT=$({ printf 'GET / HTTP/1.0\r\n\r\n'; sleep 2; } 2>/dev/null | \
         timeout 10 "$OSSL" s_client \
             -connect      "${SERVER_IP}:${MTLS_PORT}" \
@@ -75,6 +77,7 @@ while [[ $_STOP -eq 0 ]]; do
             -sigalgs      "${SIGALGS}" \
             -verify 2 \
             2>&1 || true)
+    log_tty_state "after s_client"
     [[ $_STOP -eq 0 ]] || break
     COUNT=$((COUNT + 1))
     print_row "$RESULT" "$COUNT"

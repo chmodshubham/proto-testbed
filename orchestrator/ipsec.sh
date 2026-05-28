@@ -29,7 +29,7 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
     log INFO "IKE proposals:      $IPSEC_IKE_PROPOSALS"
     log INFO "ESP proposals:      $IPSEC_ESP_PROPOSALS"
     log INFO "CA certificate:     $IPSEC_CA"
-    echo ""
+    printf '\r\n'
 fi
 
 # ---------------------------------------------------------------------------
@@ -70,7 +70,6 @@ CLIENT_CONF_DIR="$(mktemp -d /tmp/ipsec-client-${MODE}-conf.XXXXXX)"
 _STOP=0
 client_cleanup() {
     _STOP=1
-    stty echo 2>/dev/null || true
     if [[ -f "$CLIENT_PID_FILE" ]]; then
         local pid
         pid="$(cat "$CLIENT_PID_FILE" 2>/dev/null || true)"
@@ -158,12 +157,15 @@ connections {
 }
 SCONF
 
+log_tty_state "before charon start"
 if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then log INFO "Starting client charon on vm1 ..."; fi
+# Detach charon stdio from the tty; it logs via the filelog config above.
 sudo STRONGSWAN_CONF="$SWAN_CONF" \
     LD_LIBRARY_PATH="${STRONGSWAN}/lib/ipsec" \
-    "${CHARON}" &
+    "${CHARON}" </dev/null >/dev/null 2>&1 &
 CHARON_PID=$!
 echo "$CHARON_PID" > "$CLIENT_PID_FILE"
+log_tty_state "after charon start"
 
 READY=0
 for i in $(seq 1 60); do
@@ -174,23 +176,28 @@ for i in $(seq 1 60); do
     sleep 0.3
 done
 [[ "$READY" -eq 1 ]] || { log ERROR "Client charon not ready after 18s."; exit 1; }
+log_tty_state "after readiness poll"
 
 sw() { sudo env LD_LIBRARY_PATH="${STRONGSWAN}/lib/ipsec" "${SWANCTL}" --uri "unix://${CLIENT_VICI}" "$@"; }
 
 sw --load-creds --noprompt --file "${SWANCTL_CONF}" > /dev/null 2>&1
 sw --load-conns --file "${SWANCTL_CONF}" > /dev/null 2>&1
+log_tty_state "after load-creds/conns"
 if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then log INFO "Client charon ready."; fi
 
 # ---------------------------------------------------------------------------
 # Traffic loop
 # ---------------------------------------------------------------------------
 
+log_tty_state "before traffic_header"
 traffic_header
 
 set +m
 COUNT=0
 while [[ $_STOP -eq 0 ]]; do
+    log_tty_state "loop top (#$((COUNT + 1)))"
     sw --initiate --child "${IPSEC_CONN}" --timeout 15 > /dev/null 2>&1 || true
+    log_tty_state "after sw --initiate"
     [[ $_STOP -eq 0 ]] || break
 
     SA_OUT=""
@@ -199,6 +206,7 @@ while [[ $_STOP -eq 0 ]]; do
         printf '%s\n' "$SA_OUT" | grep -q "ESTABLISHED" && break
         sleep 0.3
     done
+    log_tty_state "after sw --list-sas"
 
     [[ $_STOP -eq 0 ]] || break
     COUNT=$((COUNT + 1))
@@ -213,10 +221,12 @@ while [[ $_STOP -eq 0 ]]; do
         VERIFY=1
     fi
 
-    printf "%-21s %-16s %-7s %-28s %-36s %s\n" \
+    log_tty_state "before printf row"
+    printf "%-21s %-16s %-7s %-28s %-36s %s\r\n" \
         "$TS" "${PROTO_TAG:-ipsec}" "#${COUNT}" "${IKE_GRP:--}" "${ESP:--}" "$VERIFY"
 
     sleep 2
     sw --terminate --ike "${IPSEC_CONN}" > /dev/null 2>&1 || true
+    log_tty_state "after sw --terminate"
     sleep 0.3
 done
