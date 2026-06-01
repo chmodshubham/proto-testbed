@@ -31,7 +31,7 @@ source "${REPO_ROOT}/protocols/tls/config.sh"
 
 NGINX_CONF="/tmp/tls-nginx-${MODE}.conf"
 NGINX_PID="/tmp/tls-nginx-${MODE}.pid"
-NGINX_ERROR_LOG="/tmp/tls-server.log"
+NGINX_ERROR_LOG="/tmp/tls-server-${MODE}.log"
 
 log INFO "Mode:               $MODE"
 log INFO "Listening on:       ${BIND_IP}:${TLS_PORT}"
@@ -40,7 +40,7 @@ log INFO "Protocols:          $TLS_PROTOCOLS"
 log INFO "KEX groups:         $TLS_GROUPS"
 log INFO "Cipher suites:      $CIPHERS"
 log INFO "Signature algs:     $SIGALGS"
-echo ""
+printf '\n'
 
 # ssl_ciphers applies to TLS 1.2 only; omit for TLS 1.3 to use negotiated defaults.
 if [[ "$MODE" == "classical" ]]; then

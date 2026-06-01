@@ -39,10 +39,10 @@ export PATH="$(pwd)/os-lib/install/nginx/sbin${PATH:+:$PATH}"
 # PROTO is one of: TLS MTLS DTLS QUIC IPSEC SSH
 
 # TLS
-export TLS_VM1_IP="10.141.230.126"
-export TLS_VM2_IP="10.141.230.126"
+export TLS_VM1_IP=""
+export TLS_VM2_IP=""
 export TLS_VM2_USER=ubuntu
-export TLS_VM2_HOST="localhost"
+export TLS_VM2_HOST=""
 export TLS_VM2_REPO="/home/ubuntu/proto-testbed"
 export TLS_VM2_PASSWORD=""
 
@@ -63,10 +63,10 @@ export DTLS_VM2_REPO="/home/ubuntu/proto-testbed"
 export DTLS_VM2_PASSWORD=""
 
 # QUIC
-export QUIC_VM1_IP="10.141.230.126"
-export QUIC_VM2_IP="10.141.230.126"
+export QUIC_VM1_IP=""
+export QUIC_VM2_IP=""
 export QUIC_VM2_USER=ubuntu
-export QUIC_VM2_HOST="localhost"
+export QUIC_VM2_HOST=""
 export QUIC_VM2_REPO="/home/ubuntu/proto-testbed"
 export QUIC_VM2_PASSWORD=""
 

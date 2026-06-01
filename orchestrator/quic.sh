@@ -67,7 +67,7 @@ ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
     nohup bash protocols/quic/server.sh ${MODE} > /tmp/quic-server-${MODE}.log 2>&1 &
 EOF
 
-wait_proc "quic-nginx-${MODE}" "/tmp/quic-server.log"
+wait_proc "quic-nginx-${MODE}" "/tmp/quic-server-${MODE}.log"
 log_tty_state "before traffic_header"
 traffic_header
 

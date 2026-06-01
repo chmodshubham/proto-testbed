@@ -50,17 +50,7 @@ ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
     nohup bash protocols/dtls/server.sh ${MODE} > /tmp/dtls-server.log 2>&1 &
 EOF
 
-for i in $(seq 1 20); do
-    if ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
-        "grep -q 'Server is ready' /tmp/dtls-server.log 2>/dev/null" 2>/dev/null; then
-        if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
-            log INFO "Server is ready and accepting connections."
-        fi
-        break
-    fi
-    [[ $i -eq 20 ]] && { log ERROR "Server failed to start within 10s. Check /tmp/dtls-server.log on ${VM2_HOST}."; exit 1; }
-    sleep 0.5
-done
+wait_proc "protocols/dtls/server" "/tmp/dtls-server.log"
 log_tty_state "before traffic_header"
 traffic_header
 

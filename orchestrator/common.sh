@@ -261,6 +261,17 @@ traffic_header() {
     printf "%-21s %-16s %-7s %-28s %-36s %s\r\n" "---------------------" "----------------" "-------" "----------------------------" "------------------------------------" "------"
 }
 
+# tls_flags <mode> — set TLS_VER_FLAG and CIPHER_FLAG for the given mode.
+tls_flags() {
+    if [[ "$1" == "classical" ]]; then
+        TLS_VER_FLAG="-tls1_2"
+        CIPHER_FLAG="-cipher"
+    else
+        TLS_VER_FLAG="-tls1_3"
+        CIPHER_FLAG="-ciphersuites"
+    fi
+}
+
 # print_row <result_string> <count> — parse s_client/dtls-client output and print one table row
 print_row() {
     local result="$1" count="$2"

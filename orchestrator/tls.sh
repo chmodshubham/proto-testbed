@@ -55,18 +55,12 @@ ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
 EOF
 
 log_tty_state "after server start"
-wait_tcp "${TLS_PORT}" "/tmp/tls-server.log"
+wait_tcp "${TLS_PORT}" "/tmp/tls-server-${MODE}.log"
 check_vm1_reach "${TLS_PORT}" tls
 log_tty_state "before traffic_header"
 traffic_header
 
-if [[ "$MODE" == "classical" ]]; then
-    TLS_VER_FLAG="-tls1_2"
-    CIPHER_FLAG="-cipher"
-else
-    TLS_VER_FLAG="-tls1_3"
-    CIPHER_FLAG="-ciphersuites"
-fi
+tls_flags "$MODE"
 
 set +m
 COUNT=0

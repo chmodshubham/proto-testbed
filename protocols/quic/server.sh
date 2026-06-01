@@ -31,7 +31,7 @@ source "${REPO_ROOT}/protocols/quic/config.sh"
 
 NGINX_CONF="/tmp/quic-nginx-${MODE}.conf"
 NGINX_PID="/tmp/quic-nginx-${MODE}.pid"
-NGINX_ERROR_LOG="/tmp/quic-server.log"
+NGINX_ERROR_LOG="/tmp/quic-server-${MODE}.log"
 
 log INFO "Mode:               $MODE"
 log INFO "Listening on:       ${BIND_IP}:${QUIC_PORT} (UDP)"
@@ -39,7 +39,7 @@ log INFO "Certificate:        ${SERVER_CERT}"
 log INFO "KEX groups:         $QUIC_GROUPS"
 log INFO "Cipher suites:      $CIPHERS"
 log INFO "Signature algs:     $SIGALGS"
-echo ""
+printf '\n'
 
 cat > "$NGINX_CONF" <<CONF
 worker_processes 1;
