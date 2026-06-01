@@ -2,7 +2,7 @@
 # lib-setup.sh — clone the repo and build all libraries on this VM.
 #
 # Usage (run as the testbed user, NOT root):
-#   bash setup.sh [--skip-openssl] [--skip-strongswan] [--skip-openssh]
+#   bash lib-setup.sh [--skip-openssl] [--skip-strongswan] [--skip-openssh] [--skip-boringssl] [--skip-nginx]
 #
 # All libraries install into <repo>/os-lib/install/. Nothing touches system paths.
 # Run this on every VM that will participate in the testbed.
