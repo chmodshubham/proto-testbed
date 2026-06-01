@@ -118,8 +118,9 @@ int main(int argc, char *argv[]) {
     fflush(stdout);
 
     int data_rc = 0;
-    if (SSL_write(ssl, "PING\n", 5) != 5) {
-        fprintf(stderr, "[ERROR] Failed to send PING.\n");
+    const char *question = "How are you, server?\n";
+    if (SSL_write(ssl, question, (int)strlen(question)) != (int)strlen(question)) {
+        fprintf(stderr, "[ERROR] Failed to send question.\n");
         data_rc = 1;
     } else {
         char buf[256];
@@ -129,7 +130,7 @@ int main(int argc, char *argv[]) {
             data_rc = 1;
         } else {
             buf[n] = '\0';
-            if (strncmp(buf, "PONG", 4) != 0) {
+            if (strncmp(buf, "I am fine, client!", 18) != 0) {
                 fprintf(stderr, "[ERROR] Unexpected response: %s\n", buf);
                 data_rc = 1;
             }

@@ -166,8 +166,8 @@ int main(int argc, char *argv[]) {
             int n = SSL_read(ssl, buf, sizeof(buf) - 1);
             if (n > 0) {
                 buf[n] = '\0';
-                logts("INFO", "Data OK: PING received, sending PONG.");
-                SSL_write(ssl, "PONG\n", 5);
+                logts("INFO", "Data OK: question received, sending answer.");
+                SSL_write(ssl, "I am fine, client!\n", 19);
             }
             SSL_shutdown(ssl);
         } else {

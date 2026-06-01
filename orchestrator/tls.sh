@@ -57,7 +57,7 @@ set +m
 COUNT=0
 while [[ $_STOP -eq 0 ]]; do
     log_tty_state "loop top (#$((COUNT + 1)))"
-    RESULT=$({ printf 'GET / HTTP/1.0\r\n\r\n'; sleep 2; } 2>/dev/null | \
+    RESULT=$({ printf 'How are you, server?\r\n'; sleep 2; } 2>/dev/null | \
         timeout 10 "$OSSL" s_client \
             -connect "${SERVER_IP}:${TLS_PORT}" \
             -CAfile  "$CAFILE" \

@@ -185,7 +185,7 @@ int main(int argc, char *argv[]) {
             if (nread > 0) {
                 snprintf(msg, sizeof(msg), "Data OK: %zu bytes received, sending response.", nread);
                 logts("INFO", msg);
-                const char *resp = "HTTP/1.0 200 OK\r\nContent-Length: 5\r\n\r\nOK!\r\n";
+                const char *resp = "I am fine, client!\n";
                 size_t nwritten = 0;
                 SSL_write_ex(conn, resp, strlen(resp), &nwritten);
             }
