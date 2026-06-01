@@ -63,7 +63,7 @@ http {
         add_header Alt-Svc 'h3=":${QUIC_PORT}"; ma=86400';
 
         location / {
-            return 200 "QUIC OK\n";
+            return 200 "I am fine, client!\n";
             add_header Content-Type text/plain;
         }
     }

@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
 
     int data_rc = 0;
     size_t nwritten = 0;
-    if (!SSL_write_ex(ssl, "GET / HTTP/1.0\r\n\r\n", 18, &nwritten)) {
+    if (!SSL_write_ex(ssl, "GET /?q=How+are+you%2C+server%3F HTTP/1.0\r\n\r\n", 45, &nwritten)) {
         fprintf(stderr, "[ERROR] Failed to send request.\n");
         data_rc = 1;
     } else {

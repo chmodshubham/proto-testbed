@@ -73,7 +73,7 @@ ${SSL_CIPHERS_LINE}
         ssl_session_tickets off;
 
         location / {
-            return 200 "TLS OK\n";
+            return 200 "I am fine, client!\n";
             add_header Content-Type text/plain;
         }
     }
