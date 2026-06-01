@@ -38,7 +38,6 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
     printf '\r\n'
     log INFO  "Starting mTLS server (${MODE}) on ${VM2_HOST} ..."
 fi
-
 ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
     pkill -f "s_server.*${MTLS_PORT}" > /dev/null 2>&1 && sleep 0.2 || true
     cd ${VM2_REPO}

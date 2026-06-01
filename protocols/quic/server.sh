@@ -31,6 +31,7 @@ log INFO "Certificate:        ${SERVER_CERT}"
 log INFO "KEX groups:         $QUIC_GROUPS"
 log INFO "Cipher suites:      $CIPHERS"
 log INFO "Signature algs:     $SIGALGS"
+log INFO "Library (server):   $("$NGINX" -V 2>&1 | grep -oE 'nginx/[0-9.]+' || true) + BoringSSL $("$NGINX" -V 2>&1 | grep -oE 'boringssl-[0-9.]+' | grep -oE '[0-9.]+' || true)"
 printf '\n'
 
 cd "${REPO_ROOT}"

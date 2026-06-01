@@ -27,6 +27,7 @@ log INFO "Certificate:        ${PKI}/tls/${MODE}/server-cert.pem"
 log INFO "KEX groups:         $TLS_GROUPS"
 log INFO "Cipher suites:      $CIPHERS"
 log INFO "Signature algs:     $SIGALGS"
+log INFO "Library (server):   $("$NGINX" -V 2>&1 | grep -oE 'nginx/[0-9.]+' || true) + BoringSSL $("$NGINX" -V 2>&1 | grep -oE 'boringssl-[0-9.]+' | grep -oE '[0-9.]+' || true)"
 printf '\n'
 
 exec "$OSSL" s_server \
