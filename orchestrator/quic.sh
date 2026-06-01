@@ -13,7 +13,7 @@ source "${REPO_ROOT}/orchestrator/common.sh"
 check_ossl "protocols/quic/README.md"
 
 if [[ ! -x "${REPO_ROOT}/protocols/quic/client" ]]; then
-    log ERROR "QUIC client binary not found. Run: make -C protocols/quic"
+    log ERROR "QUIC client binary not found. Run: make -C protocols/quic client"
     exit 1
 fi
 
@@ -31,8 +31,13 @@ export VM2_IP="$SERVER_IP"
 _STOP=0
 cleanup() {
     _STOP=1
-    ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
-        "pkill -f 'protocols/quic/server ${MODE}' 2>/dev/null || true" 2>/dev/null || true
+    ssh_vm2 "${VM2_USER}@${VM2_HOST}" "
+        pidfile=/tmp/quic-nginx-${MODE}.pid
+        if [[ -f \"\$pidfile\" ]]; then
+            kill \"\$(cat \"\$pidfile\")\" 2>/dev/null || true
+        fi
+        pkill -f 'nginx.*quic-nginx-${MODE}' 2>/dev/null || true
+    " 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
@@ -51,23 +56,18 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
 fi
 
 ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
-    pkill -f "protocols/quic/server ${MODE}" > /dev/null 2>&1 && sleep 0.2 || true
+    pidfile=/tmp/quic-nginx-${MODE}.pid
+    if [[ -f "\$pidfile" ]]; then
+        kill "\$(cat "\$pidfile")" 2>/dev/null || true
+        sleep 0.2
+    fi
+    pkill -f 'nginx.*quic-nginx-${MODE}' 2>/dev/null || true
     cd ${VM2_REPO}
     source env.sh
     nohup bash protocols/quic/server.sh ${MODE} > /tmp/quic-server-${MODE}.log 2>&1 &
 EOF
 
-for i in $(seq 1 20); do
-    if ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
-        "grep -q 'Server is ready' /tmp/quic-server-${MODE}.log 2>/dev/null" 2>/dev/null; then
-        if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
-            log INFO "Server is ready and accepting connections."
-        fi
-        break
-    fi
-    [[ $i -eq 20 ]] && { log ERROR "Server failed to start within 10s. Check /tmp/quic-server-${MODE}.log on ${VM2_HOST}."; exit 1; }
-    sleep 0.5
-done
+wait_proc "quic-nginx-${MODE}" "/tmp/quic-server.log"
 log_tty_state "before traffic_header"
 traffic_header
 

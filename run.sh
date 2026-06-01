@@ -96,21 +96,33 @@ esac
 # ---------------------------------------------------------------------------
 
 needs_openssl=0
+needs_nginx=0
 needs_strongswan=0
 needs_openssh=0
 
 case "$PROTO" in
-    tls|mtls|dtls|quic) needs_openssl=1 ;;
-    ipsec)               needs_strongswan=1 ;;
-    ssh)                 needs_openssh=1 ;;
-    all)                 needs_openssl=1; needs_strongswan=1; needs_openssh=1 ;;
+    tls)           needs_openssl=1; needs_nginx=1 ;;
+    mtls|dtls)     needs_openssl=1 ;;
+    quic)          needs_openssl=1; needs_nginx=1 ;;
+    ipsec)         needs_strongswan=1 ;;
+    ssh)           needs_openssh=1 ;;
+    all)           needs_openssl=1; needs_nginx=1; needs_strongswan=1; needs_openssh=1 ;;
 esac
 
 if [[ $needs_openssl -eq 1 ]]; then
     OSSL="${REPO_ROOT}/os-lib/install/openssl-4.0/bin/openssl"
     if [[ ! -x "$OSSL" ]]; then
         log ERROR "OpenSSL 4.0 not found at: ${OSSL}"
-        log ERROR "Build it first. See protocols/tls/README.md Steps 1-4."
+        log ERROR "Build it first: bash lib-setup.sh"
+        exit 1
+    fi
+fi
+
+if [[ $needs_nginx -eq 1 ]]; then
+    NGINX_CHK="${REPO_ROOT}/os-lib/install/nginx/sbin/nginx"
+    if [[ ! -x "$NGINX_CHK" ]]; then
+        log ERROR "nginx not found at: ${NGINX_CHK}"
+        log ERROR "Build it first: bash lib-setup.sh"
         exit 1
     fi
 fi
@@ -143,7 +155,7 @@ ensure_apt_deps rsync
 # protocol-specific build/runtime deps
 case "$PROTO" in
     tls|mtls|dtls|quic|all)
-        ensure_apt_deps build-essential cmake pkg-config perl
+        ensure_apt_deps build-essential cmake pkg-config perl python3
         ;;
 esac
 case "$PROTO" in
@@ -249,13 +261,13 @@ prepare_proto() {
         --exclude='.git/' \
         "${REPO_ROOT}/" "${VM2_USER}@${VM2_HOST}:${VM2_REPO}/"
 
-    if [[ "$proto" == "dtls" || "$proto" == "quic" ]]; then
+    if [[ "$proto" == "dtls" ]]; then
         if ! ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
-                "[[ -x '${VM2_REPO}/protocols/${proto}/server' ]]" 2>/dev/null; then
-            log INFO "Building ${proto} server on ${VM2_HOST} ..."
+                "[[ -x '${VM2_REPO}/protocols/dtls/server' ]]" 2>/dev/null; then
+            log INFO "Building dtls server on ${VM2_HOST} ..."
             ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
-                "make -s -C '${VM2_REPO}/protocols/${proto}' server" || {
-                log ERROR "Failed to build ${proto} server on ${VM2_HOST}."
+                "make -s -C '${VM2_REPO}/protocols/dtls' server" || {
+                log ERROR "Failed to build dtls server on ${VM2_HOST}."
                 exit 1
             }
         fi

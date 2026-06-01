@@ -34,7 +34,7 @@ static void logts(const char *level, const char *msg) {
     fflush(stdout);
 }
 
-static const unsigned char alpn[] = { 10, 'h','q','-','i','n','t','e','r','o','p' };
+static const unsigned char alpn[] = { 2, 'h', '3' };
 
 int main(int argc, char *argv[]) {
     int pqc = 0;

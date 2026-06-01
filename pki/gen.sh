@@ -206,6 +206,9 @@ gen_tls_pqc() {
     gen_ca   "$ca"  ML-DSA-65 "Testbed TLS PQC CA"
     log INFO "TLS PQC: generating server leaf (ML-DSA-65) ..."
     gen_leaf "$leaf" "$ca" ML-DSA-65 server_cert vm2
+    log INFO "TLS PQC: converting server key to BoringSSL seed format ..."
+    python3 "${REPO_ROOT}/pki/mldsa_to_bssl.py" \
+        "${leaf}/server-key.pem" "${leaf}/server-key.pem"
     log INFO "TLS PQC done."
     log INFO "  CA cert:     pki/out/ca/tls/pqc/ca-cert.pem"
     log INFO "  Server cert: pki/out/tls/pqc/server-cert.pem"
@@ -379,6 +382,9 @@ gen_quic_pqc() {
     gen_ca   "$ca"  ML-DSA-44  "Testbed QUIC PQC CA"
     log INFO "QUIC PQC: generating server leaf (ML-DSA-65) ..."
     gen_leaf "$leaf" "$ca" ML-DSA-65 server_cert vm2
+    log INFO "QUIC PQC: converting server key to BoringSSL seed format ..."
+    python3 "${REPO_ROOT}/pki/mldsa_to_bssl.py" \
+        "${leaf}/server-key.pem" "${leaf}/server-key.pem"
     log INFO "QUIC PQC done."
     log INFO "  CA cert:     pki/out/ca/quic/pqc/ca-cert.pem"
     log INFO "  Server cert: pki/out/quic/pqc/server-cert.pem"

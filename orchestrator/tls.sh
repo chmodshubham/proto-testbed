@@ -18,8 +18,13 @@ MODE="${1:-classical}"
 _STOP=0
 cleanup() {
     _STOP=1
-    ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
-        "pkill -f 's_server.*${TLS_PORT}' 2>/dev/null || true" 2>/dev/null || true
+    ssh_vm2 "${VM2_USER}@${VM2_HOST}" "
+        pidfile=/tmp/tls-nginx-${MODE}.pid
+        if [[ -f \"\$pidfile\" ]]; then
+            kill \"\$(cat \"\$pidfile\")\" 2>/dev/null || true
+        fi
+        pkill -f 'nginx.*tls-nginx-${MODE}' 2>/dev/null || true
+    " 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 SERVER_IP="${NLB_HOST:-${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}}"
@@ -39,7 +44,11 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
 fi
 
 ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
-    pkill -f "s_server.*${TLS_PORT}" > /dev/null 2>&1 && sleep 0.2 || true
+    pidfile=/tmp/tls-nginx-${MODE}.pid
+    if [[ -f "\$pidfile" ]]; then
+        kill "\$(cat "\$pidfile")" 2>/dev/null || true
+        sleep 0.2
+    fi
     cd ${VM2_REPO}
     source env.sh
     nohup bash protocols/tls/server.sh ${MODE} > /tmp/tls-server.log 2>&1 &

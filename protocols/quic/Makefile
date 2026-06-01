@@ -7,13 +7,10 @@ LDFLAGS = -L$(OSSL_DIR)/lib -lssl -lcrypto -Wl,-rpath,$(OSSL_DIR)/lib
 
 .PHONY: all clean
 
-all: server client
-
-server: server.c
-	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+all: client
 
 client: client.c
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
 clean:
-	rm -f server client
+	rm -f client

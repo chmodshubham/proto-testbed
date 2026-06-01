@@ -1,47 +1,86 @@
 #!/usr/bin/env bash
-# protocols/tls/server.sh — TLS server on vm2 (TLS 1.2 for classical, TLS 1.3 for pqc)
+# protocols/tls/server.sh — nginx TLS server on vm2
 #
-# Usage: ./protocols/tls/server.sh [classical|pqc]
-# Run from repo root.
+# Usage: bash protocols/tls/server.sh [classical|pqc]
+# Run from repo root after sourcing env.sh.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 source "${REPO_ROOT}/orchestrator/common.sh"
 
-check_ossl "protocols/tls/README.md"
-resolve_vm_config tls
-
 MODE="${1:-classical}"
+resolve_vm_config tls
 BIND_IP="${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}"
+
+NGINX="${REPO_ROOT}/os-lib/install/nginx/sbin/nginx"
+
+[[ -x "$NGINX" ]] || {
+    log ERROR "nginx not found: ${NGINX}"
+    log ERROR "Run: bash lib-setup.sh  (or bash lib-setup.sh --skip-openssl --skip-strongswan --skip-openssh)"
+    exit 1
+}
 
 source "${REPO_ROOT}/protocols/tls/config.sh"
 
-if [[ "$MODE" == "classical" ]]; then
-    TLS_VER_FLAG="-tls1_2"
-    CIPHER_FLAG="-cipher"
-    TLS_VER_LABEL="TLS 1.2"
-else
-    TLS_VER_FLAG="-tls1_3"
-    CIPHER_FLAG="-ciphersuites"
-    TLS_VER_LABEL="TLS 1.3"
-fi
+[[ -f "${PKI}/tls/${MODE}/server-cert.pem" ]] || {
+    log ERROR "Certificate not found: ${PKI}/tls/${MODE}/server-cert.pem"
+    log ERROR "Run: bash pki/gen.sh tls ${MODE}"
+    exit 1
+}
+
+NGINX_CONF="/tmp/tls-nginx-${MODE}.conf"
+NGINX_PID="/tmp/tls-nginx-${MODE}.pid"
+NGINX_ERROR_LOG="/tmp/tls-server.log"
 
 log INFO "Mode:               $MODE"
 log INFO "Listening on:       ${BIND_IP}:${TLS_PORT}"
-log INFO "Protocol:           $TLS_VER_LABEL"
 log INFO "Certificate:        ${PKI}/tls/${MODE}/server-cert.pem"
+log INFO "Protocols:          $TLS_PROTOCOLS"
 log INFO "KEX groups:         $TLS_GROUPS"
 log INFO "Cipher suites:      $CIPHERS"
 log INFO "Signature algs:     $SIGALGS"
 echo ""
 
-exec "$OSSL" s_server \
-    -accept "${BIND_IP}:${TLS_PORT}" \
-    -cert   "${PKI}/tls/${MODE}/server-cert.pem" \
-    -key    "${PKI}/tls/${MODE}/server-key.pem" \
-    "$TLS_VER_FLAG" \
-    -groups "$TLS_GROUPS" \
-    "$CIPHER_FLAG" "$CIPHERS" \
-    -sigalgs "$SIGALGS" \
-    -WWW
+# ssl_ciphers applies to TLS 1.2 only; omit for TLS 1.3 to use negotiated defaults.
+if [[ "$MODE" == "classical" ]]; then
+    SSL_CIPHERS_LINE="        ssl_ciphers         ${CIPHERS};"
+else
+    SSL_CIPHERS_LINE=""
+fi
+
+cat > "$NGINX_CONF" <<CONF
+worker_processes 1;
+pid              ${NGINX_PID};
+error_log        ${NGINX_ERROR_LOG} warn;
+
+events {
+    worker_connections 256;
+}
+
+http {
+    server {
+        listen      ${BIND_IP}:${TLS_PORT} ssl;
+        server_name _;
+
+        ssl_certificate     ${PKI}/tls/${MODE}/server-cert.pem;
+        ssl_certificate_key ${PKI}/tls/${MODE}/server-key.pem;
+        ssl_protocols       ${TLS_PROTOCOLS};
+${SSL_CIPHERS_LINE}
+        ssl_ecdh_curve      ${TLS_GROUPS};
+
+        ssl_session_cache   off;
+        ssl_session_tickets off;
+
+        location / {
+            return 200 "TLS OK\n";
+            add_header Content-Type text/plain;
+        }
+    }
+}
+CONF
+
+"$NGINX" -t -c "$NGINX_CONF"
+log INFO "Config test passed. Starting nginx ..."
+
+exec "$NGINX" -c "$NGINX_CONF" -g "daemon off;"

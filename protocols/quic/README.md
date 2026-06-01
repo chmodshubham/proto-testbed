@@ -9,13 +9,20 @@ vm1 connects to a QUIC server running on vm2 in a loop. Each connection complete
 
 ## Pre-requisites
 
-See the root [README.md](../../README.md) for VM setup, hardware, and per-protocol `env.sh` configuration. Install OpenSSL 4.0 on both VMs first per [docs/openssl.md](../../docs/openssl.md).
+See the root [README.md](../../README.md) for VM setup, hardware, and per-protocol `env.sh` configuration.
 
-The QUIC server and client are small C programs ([`server.c`](server.c), [`client.c`](client.c)) using OpenSSL 4.0's native QUIC API (`OSSL_QUIC_server_method` / `OSSL_QUIC_client_method`). `run.sh` builds them automatically; for the direct-orchestrator path, build them by hand.
+Install on **both VMs**:
+
+- OpenSSL 4.0: [docs/openssl.md](../../docs/openssl.md)
+- nginx (BoringSSL): [docs/nginx.md](../../docs/nginx.md)
+
+The QUIC client is a small C program ([`client.c`](client.c)) using OpenSSL 4.0's native QUIC API. `run.sh` builds it automatically; for the direct-orchestrator path, build it by hand on vm1.
+
+The QUIC server is nginx built against BoringSSL with HTTP/3 support (`--with-http_v3_module`).
 
 ## Run
 
-`run.sh` generates the PKI on first run, builds the C binaries on both VMs, syncs everything to vm2, starts the server, and loops traffic until you press Ctrl-C.
+`run.sh` generates the PKI on first run, builds the client binary on vm1, syncs everything to vm2, starts the nginx server, and loops traffic until you press Ctrl-C.
 
 ```bash
 ./run.sh --proto quic --mode classical   # Ed25519 cert, X25519 KEX
@@ -23,11 +30,11 @@ The QUIC server and client are small C programs ([`server.c`](server.c), [`clien
 ./run.sh --proto quic --mode all         # both modes in parallel
 ```
 
-Each connection prints one row: timestamp, connection number, KEX group, cipher suite, verify code. `Verify: 0` means certificate validation succeeded. After the handshake the client sends `GET / HTTP/1.0` and the server replies with a short HTTP/200; the server log line `Data OK: N bytes received, sending response.` proves the QUIC stream carried application data.
+Each connection prints one row: timestamp, connection number, KEX group, cipher suite, verify code. `Verify: 0` means certificate validation succeeded.
 
 ## Run the orchestrator directly
 
-`run.sh` is the recommended entry point. Running the orchestrator directly skips dependency installs, PKI generation, the vm2 sync, and the C build, so you have to do those steps manually first.
+`run.sh` is the recommended entry point. Running the orchestrator directly skips dependency installs, PKI generation, the vm2 sync, and the client build, so you have to do those steps manually first.
 
 1. Generate the PKI on **vm1**:
 
@@ -45,7 +52,7 @@ Each connection prints one row: timestamp, connection number, KEX group, cipher 
    pki/out/quic/pqc/server-cert.pem        server-key.pem
    ```
 
-2. Build the C binaries and sync everything to **vm2**:
+2. Build the client binary and sync everything to **vm2**:
 
    ```bash
    make -C protocols/quic
@@ -53,8 +60,6 @@ Each connection prints one row: timestamp, connection number, KEX group, cipher 
    rsync -a --mkpath protocols/quic/      "$VM2_USER@$VM2_HOST:$VM2_REPO/protocols/quic/"
    rsync -a --mkpath pki/out/ca/quic/     "$VM2_USER@$VM2_HOST:$VM2_REPO/pki/out/ca/quic/"
    rsync -a --mkpath pki/out/quic/        "$VM2_USER@$VM2_HOST:$VM2_REPO/pki/out/quic/"
-
-   ssh "$VM2_USER@$VM2_HOST" "cd $VM2_REPO && make -C protocols/quic"
    ```
 
 3. Verify on **vm2** (run from repo root; both must print `OK`):

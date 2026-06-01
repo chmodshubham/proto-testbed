@@ -9,11 +9,16 @@ vm1 connects to a TLS server running on vm2 in a loop. Each connection completes
 
 ## Pre-requisites
 
-See the root [README.md](../../README.md) for VM setup, hardware, and per-protocol `env.sh` configuration. Install OpenSSL 4.0 on both VMs first per [docs/openssl.md](../../docs/openssl.md). Then on vm1:
+See the root [README.md](../../README.md) for VM setup, hardware, and per-protocol `env.sh` configuration.
+
+Install on **both VMs**:
+
+- OpenSSL 4.0: [docs/openssl.md](../../docs/openssl.md)
+- nginx (BoringSSL): [docs/nginx.md](../../docs/nginx.md)
 
 ## Run
 
-`run.sh` generates the PKI on first run, syncs it (and the repo) to vm2, starts the server, and loops traffic until you press Ctrl-C.
+`run.sh` generates the PKI on first run, syncs the repo to vm2, starts the nginx server, and loops traffic until you press Ctrl-C.
 
 ```bash
 ./run.sh --proto tls --mode classical   # TLS 1.2 with X25519 KEX
@@ -43,7 +48,7 @@ Each connection prints one row: timestamp, connection number, KEX group, cipher 
    pki/out/tls/pqc/server-cert.pem        server-key.pem
    ```
 
-2. Sync the certificates to **vm2**:
+2. Sync the certificates and repo to **vm2**:
 
    ```bash
    rsync -a --mkpath pki/out/ca/tls/ "$VM2_USER@$VM2_HOST:$VM2_REPO/pki/out/ca/tls/"
@@ -72,17 +77,14 @@ Each connection prints one row: timestamp, connection number, KEX group, cipher 
    bash orchestrator/tls.sh pqc
    ```
 
-## Flags reference
+## Algorithm reference
 
-OpenSSL `s_server` / `s_client` flags used by `protocols/tls/server.sh` and `client.sh`:
+| Field       | Classical                     | PQC                     |
+| ----------- | ----------------------------- | ----------------------- |
+| CA key      | P-256                         | ML-DSA-65               |
+| Server key  | P-256                         | ML-DSA-65               |
+| KEX         | X25519                        | X25519MLKEM768 (hybrid) |
+| Cipher      | ECDHE-ECDSA-AES256-GCM-SHA384 | TLS_AES_256_GCM_SHA384  |
+| TLS version | 1.2 and 1.3                   | 1.3 only                |
 
-| Flag              | Description                                        |
-| ----------------- | -------------------------------------------------- |
-| `-tls1_2`         | TLS 1.2 only (classical mode)                      |
-| `-tls1_3`         | TLS 1.3 only (PQC mode)                            |
-| `-cipher <list>`  | Colon-separated cipher suites (TLS 1.2, classical) |
-| `-ciphersuites`   | Colon-separated cipher suites (TLS 1.3, PQC)       |
-| `-groups <list>`  | Colon-separated KEX groups                         |
-| `-sigalgs <list>` | Colon-separated signature algorithms               |
-| `-WWW`            | HTTP-like GET mode (server)                        |
-| `-keylogfile`     | NSS keylog for Wireshark decryption                |
+The server is nginx built against BoringSSL. The client is OpenSSL 4.0 `s_client`.

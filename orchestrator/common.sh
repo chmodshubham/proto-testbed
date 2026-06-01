@@ -144,14 +144,15 @@ wait_tcp() {
 }
 
 # check_vm1_reach <port> [proto] — verify vm1 can open a TCP connection to the connect target:port.
-# Target is NLB_HOST when set and proto is tls|mtls|quic; otherwise VM2_IP.
-# TCP only; UDP reachability cannot be confirmed without an app-level reply.
+# Target is NLB_HOST when set and proto is tls|mtls; otherwise VM2_IP.
+# TCP only; QUIC and DTLS are UDP — no reachability check possible without an app-level reply.
+# For QUIC with an NLB, the NLB must be configured as UDP passthrough (not TCP passthrough).
 # Honors TESTBED_SKIP_REACH=1 to skip entirely.
 check_vm1_reach() {
     local port="$1" proto="${2:-}"
     local target="$VM2_IP"
     case "$proto" in
-        tls|mtls|quic) target="${NLB_HOST:-$VM2_IP}" ;;
+        tls|mtls) target="${NLB_HOST:-$VM2_IP}" ;;
     esac
     [[ "${TESTBED_SKIP_REACH:-0}" == "1" ]] && return 0
     if ! timeout 3 bash -c "</dev/tcp/${target}/${port}" 2>/dev/null; then
@@ -185,10 +186,12 @@ kill_vm2_ports() {
         source env.sh || exit 0
         case "${proto}" in
             tls)
+                for _pf in /tmp/tls-nginx-classical.pid /tmp/tls-nginx-pqc.pid; do
+                    [[ -f "\$_pf" ]] && kill "\$(cat "\$_pf")" 2>/dev/null || true
+                done
                 sudo fuser -k \${PORT_TLS}/tcp     > /dev/null 2>&1 || true
                 sudo fuser -k \${PORT_TLS_PQC}/tcp > /dev/null 2>&1 || true
-                pkill -f "s_server.*\${PORT_TLS}"     > /dev/null 2>&1 || true
-                pkill -f "s_server.*\${PORT_TLS_PQC}" > /dev/null 2>&1 || true
+                pkill -f "nginx.*tls-nginx" > /dev/null 2>&1 || true
                 ;;
             mtls)
                 sudo fuser -k \${PORT_MTLS}/tcp     > /dev/null 2>&1 || true
@@ -201,9 +204,12 @@ kill_vm2_ports() {
                 pkill -f "protocols/dtls/server" > /dev/null 2>&1 || true
                 ;;
             quic)
+                for _pf in /tmp/quic-nginx-classical.pid /tmp/quic-nginx-pqc.pid; do
+                    [[ -f "\$_pf" ]] && kill "\$(cat "\$_pf")" 2>/dev/null || true
+                done
                 sudo fuser -k \${PORT_QUIC}/udp     > /dev/null 2>&1 || true
                 sudo fuser -k \${PORT_QUIC_PQC}/udp > /dev/null 2>&1 || true
-                pkill -f "protocols/quic/server" > /dev/null 2>&1 || true
+                pkill -f "nginx.*quic-nginx" > /dev/null 2>&1 || true
                 ;;
             ipsec)
                 sudo fuser -k \${PORT_IPSEC}/udp     > /dev/null 2>&1 || true
@@ -221,9 +227,13 @@ kill_vm2_ports() {
                 pkill -f "sshd.*\${PORT_SSH_PQC}" > /dev/null 2>&1 || true
                 ;;
             all)
-                pkill -f "s_server"              > /dev/null 2>&1 || true
+                for _pf in /tmp/tls-nginx-classical.pid /tmp/tls-nginx-pqc.pid \
+                           /tmp/quic-nginx-classical.pid /tmp/quic-nginx-pqc.pid; do
+                    [[ -f "\$_pf" ]] && kill "\$(cat "\$_pf")" 2>/dev/null || true
+                done
+                pkill -f "nginx.*tls-nginx"      > /dev/null 2>&1 || true
+                pkill -f "nginx.*quic-nginx"     > /dev/null 2>&1 || true
                 pkill -f "protocols/dtls/server" > /dev/null 2>&1 || true
-                pkill -f "protocols/quic/server" > /dev/null 2>&1 || true
                 sudo pkill -f "libexec/ipsec/charon" > /dev/null 2>&1 || true
                 sudo ip xfrm policy flush > /dev/null 2>&1 || true
                 sudo ip xfrm state flush  > /dev/null 2>&1 || true

@@ -10,18 +10,22 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/chmodshubham/proto-testbed.git"
-REPO_BRANCH="nlb-support"
+REPO_BRANCH="main"
 REPO_DIR="proto-testbed"
 
 SKIP_OPENSSL=0
 SKIP_STRONGSWAN=0
 SKIP_OPENSSH=0
+SKIP_BORINGSSL=0
+SKIP_NGINX=0
 
 for arg in "$@"; do
     case "$arg" in
         --skip-openssl)    SKIP_OPENSSL=1 ;;
         --skip-strongswan) SKIP_STRONGSWAN=1 ;;
         --skip-openssh)    SKIP_OPENSSH=1 ;;
+        --skip-boringssl)  SKIP_BORINGSSL=1 ;;
+        --skip-nginx)      SKIP_NGINX=1 ;;
         *) printf 'Unknown flag: %s\n' "$arg" >&2; exit 1 ;;
     esac
 done
@@ -35,7 +39,11 @@ die() { log ERROR "$1"; exit 1; }
 
 log INFO "Checking for repo ..."
 
-if [[ -d "$REPO_DIR/.git" ]]; then
+# Support running from inside the repo (development) or from any parent dir.
+if [[ -f "pki/gen.sh" && -f "env.sh" ]]; then
+    log INFO "Already inside repo. Skipping clone."
+    REPO_DIR="."
+elif [[ -d "$REPO_DIR/.git" ]]; then
     log INFO "Repo already exists at ${REPO_DIR}/. Skipping clone."
 else
     command -v git >/dev/null 2>&1 || die "git not found. Install it: sudo apt-get install -y git"
@@ -237,14 +245,132 @@ if [[ "$SKIP_OPENSSH" -eq 0 ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Step 5: BoringSSL 0.20260526.0
+# ---------------------------------------------------------------------------
+
+BSSL_VERSION="0.20260526.0"
+BSSL_SRC_DIR="${REPO_ROOT}/os-lib/src/boringssl-${BSSL_VERSION}"
+BSSL_TARBALL="${REPO_ROOT}/os-lib/src/boringssl-${BSSL_VERSION}.tar.gz"
+BSSL_LIBSSL="${BSSL_SRC_DIR}/build/libssl.a"
+
+if [[ "$SKIP_BORINGSSL" -eq 1 ]]; then
+    log INFO "Skipping BoringSSL (--skip-boringssl)."
+elif [[ -f "$BSSL_LIBSSL" ]]; then
+    log INFO "BoringSSL already built at ${BSSL_SRC_DIR}/build. Skipping build."
+else
+    log INFO "Installing BoringSSL build deps ..."
+    sudo apt-get install -y build-essential cmake ninja-build golang-go python3
+
+    mkdir -p "${REPO_ROOT}/os-lib/src"
+
+    if [[ ! -f "$BSSL_TARBALL" ]]; then
+        log INFO "Downloading BoringSSL ${BSSL_VERSION} ..."
+        curl -fL --retry 3 \
+            -o "$BSSL_TARBALL" \
+            "https://github.com/google/boringssl/archive/refs/tags/${BSSL_VERSION}.tar.gz"
+    fi
+
+    if [[ ! -d "$BSSL_SRC_DIR" ]]; then
+        log INFO "Extracting BoringSSL ..."
+        tar xzf "$BSSL_TARBALL" -C "${REPO_ROOT}/os-lib/src"
+    fi
+
+    log INFO "Building BoringSSL (takes a few minutes) ..."
+    cmake -S "$BSSL_SRC_DIR" -B "${BSSL_SRC_DIR}/build" \
+        -GNinja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+    ninja -C "${BSSL_SRC_DIR}/build" ssl crypto
+    cd "${REPO_ROOT}"
+fi
+
+if [[ "$SKIP_BORINGSSL" -eq 0 ]]; then
+    log INFO "Verifying BoringSSL ..."
+    [[ -f "${BSSL_SRC_DIR}/build/libssl.a" ]]    || die "libssl.a not found: ${BSSL_SRC_DIR}/build/libssl.a"
+    [[ -f "${BSSL_SRC_DIR}/build/libcrypto.a" ]] || die "libcrypto.a not found: ${BSSL_SRC_DIR}/build/libcrypto.a"
+    [[ -f "${BSSL_SRC_DIR}/include/openssl/ssl.h" ]]     || die "Headers not found: ${BSSL_SRC_DIR}/include/openssl/ssl.h"
+    log INFO "BoringSSL OK: static libs and headers present."
+fi
+
+# ---------------------------------------------------------------------------
+# Step 6: nginx 1.27.4 (HTTP/3, linked against BoringSSL)
+# ---------------------------------------------------------------------------
+
+NGINX_VERSION="1.27.4"
+NGINX_PREFIX="${REPO_ROOT}/os-lib/install/nginx"
+NGINX_BIN="${NGINX_PREFIX}/sbin/nginx"
+NGINX_SRC_DIR="${REPO_ROOT}/os-lib/src/nginx-${NGINX_VERSION}"
+NGINX_TARBALL="${REPO_ROOT}/os-lib/src/nginx-${NGINX_VERSION}.tar.gz"
+
+if [[ "$SKIP_NGINX" -eq 1 ]]; then
+    log INFO "Skipping nginx (--skip-nginx)."
+elif [[ -x "$NGINX_BIN" ]] && "$NGINX_BIN" -V 2>&1 | grep -q "BoringSSL"; then
+    log INFO "nginx already at ${NGINX_BIN}. Skipping build."
+else
+    [[ -f "$BSSL_LIBSSL" ]] \
+        || die "BoringSSL not found. Build it first (Step 5) or use --skip-nginx."
+
+    log INFO "Installing nginx build deps ..."
+    sudo apt-get install -y build-essential libpcre2-dev zlib1g-dev
+
+    mkdir -p "${REPO_ROOT}/os-lib/src"
+
+    if [[ ! -f "$NGINX_TARBALL" ]]; then
+        log INFO "Downloading nginx ${NGINX_VERSION} ..."
+        curl -fL --retry 3 \
+            -o "$NGINX_TARBALL" \
+            "https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz"
+    fi
+
+    if [[ ! -d "$NGINX_SRC_DIR" ]]; then
+        log INFO "Extracting nginx ${NGINX_VERSION} ..."
+        tar xzf "$NGINX_TARBALL" -C "${REPO_ROOT}/os-lib/src"
+    fi
+
+    log INFO "Patching nginx for BoringSSL (ASN1 API and C++ runtime) ..."
+    sed -i \
+        -e 's/serial->length/ASN1_STRING_length(serial)/g' \
+        -e 's/serial->data/ASN1_STRING_get0_data(serial)/g' \
+        "${NGINX_SRC_DIR}/src/event/ngx_event_openssl_stapling.c"
+    # BoringSSL is C++; add -lstdc++ after -lssl -lcrypto in all OpenSSL feature tests.
+    sed -i 's/-lssl -lcrypto/-lssl -lcrypto -lstdc++/g' \
+        "${NGINX_SRC_DIR}/auto/lib/openssl/conf"
+
+    log INFO "Configuring nginx against BoringSSL at ${BSSL_SRC_DIR} ..."
+    cd "$NGINX_SRC_DIR"
+    ./configure \
+        --prefix="${NGINX_PREFIX}" \
+        --with-http_ssl_module \
+        --with-http_v2_module \
+        --with-http_v3_module \
+        --with-cc-opt="-I ${BSSL_SRC_DIR}/include -L ${BSSL_SRC_DIR}/build -lstdc++ -lpthread" \
+        --with-ld-opt="-L ${BSSL_SRC_DIR}/build -lstdc++ -lpthread"
+
+    log INFO "Building nginx (takes a minute) ..."
+    make -j"$(nproc)"
+    make install
+    cd "${REPO_ROOT}"
+fi
+
+if [[ "$SKIP_NGINX" -eq 0 ]]; then
+    log INFO "Verifying nginx ..."
+    [[ -x "$NGINX_BIN" ]] || die "Binary not found: ${NGINX_BIN}"
+    "$NGINX_BIN" -V 2>&1 | grep -q "BoringSSL" \
+        || die "nginx not linked against BoringSSL. Re-run without --skip-nginx."
+    log INFO "nginx OK: BoringSSL confirmed."
+fi
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 
 printf '\n'
 log INFO "All done. Installed:"
-[[ "$SKIP_OPENSSL"    -eq 0 ]] && log INFO "  OpenSSL    ${OSSL_PREFIX}"
-[[ "$SKIP_STRONGSWAN" -eq 0 ]] && log INFO "  strongSwan ${SWAN_PREFIX}"
-[[ "$SKIP_OPENSSH"    -eq 0 ]] && log INFO "  OpenSSH    ${SSHD_PREFIX}"
+[[ "$SKIP_OPENSSL"    -eq 0 ]] && log INFO "  OpenSSL      ${OSSL_PREFIX}"
+[[ "$SKIP_STRONGSWAN" -eq 0 ]] && log INFO "  strongSwan   ${SWAN_PREFIX}"
+[[ "$SKIP_OPENSSH"    -eq 0 ]] && log INFO "  OpenSSH      ${SSHD_PREFIX}"
+[[ "$SKIP_BORINGSSL"  -eq 0 ]] && log INFO "  BoringSSL    ${BSSL_SRC_DIR}/build"
+[[ "$SKIP_NGINX"      -eq 0 ]] && log INFO "  nginx        ${NGINX_PREFIX}"
 printf '\n'
 log INFO "Next steps:"
 log INFO "  1. Edit ${REPO_ROOT}/env.sh with your VM IPs and hostnames."
