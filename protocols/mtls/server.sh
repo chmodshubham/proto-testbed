@@ -40,4 +40,4 @@ exec "$OSSL" s_server \
     -groups "${MTLS_GROUPS}" \
     "$CIPHER_FLAG" "${CIPHERS}" \
     -sigalgs "${SIGALGS}" \
-    -exec '/bin/sh -c "read line; printf \"I am fine, client!\n\""'
+    -WWW

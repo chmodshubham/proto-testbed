@@ -43,6 +43,7 @@ ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
     pkill -f "s_server.*${MTLS_PORT}" > /dev/null 2>&1 && sleep 0.2 || true
     cd ${VM2_REPO}
     source env.sh
+    printf 'I am fine, client!\n' > response.txt
     nohup bash protocols/mtls/server.sh ${MODE} > /tmp/mtls-server.log 2>&1 &
 EOF
 
@@ -58,7 +59,7 @@ set +m
 COUNT=0
 while [[ $_STOP -eq 0 ]]; do
     log_tty_state "loop top (#$((COUNT + 1)))"
-    RESULT=$({ printf 'How are you, server?\r\n'; sleep 2; } 2>/dev/null | \
+    RESULT=$({ printf 'GET /response.txt HTTP/1.0\r\n\r\n'; sleep 2; } 2>/dev/null | \
         timeout 10 "$OSSL" s_client \
             -connect      "${SERVER_IP}:${MTLS_PORT}" \
             -CAfile       "${CAFILE}" \
