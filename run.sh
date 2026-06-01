@@ -343,15 +343,6 @@ trap 'cleanup' EXIT
 # Runner
 # ---------------------------------------------------------------------------
 
-# print_shared_header — print the single traffic table header used in parallel mode
-print_shared_header() {
-    printf '\r\n'
-    log INFO "Traffic loop running. Press Ctrl-C to stop."
-    printf '\r\n'
-    printf "%-21s %-16s %-7s %-28s %-36s %s\r\n" "Timestamp" "Protocol" "Conn" "Key Exchange" "Cipher Suite" "Verify"
-    printf "%-21s %-16s %-7s %-28s %-36s %s\r\n" "---------------------" "----------------" "-------" "----------------------------" "------------------------------------" "------"
-}
-
 # prefix_run <label> <proto> <mode> — run orchestrator with TESTBED_NO_HEADER=1 (header already printed)
 # Runs orchestrator as a direct child (not inside a pipeline) so signals reach it.
 prefix_run() {
@@ -392,7 +383,7 @@ run_sequential() {
 set +m
 if [[ "$PROTO" == "all" && "$MODE" == "all" ]]; then
     log INFO "IPsec: pqc mode only. Parallel classical+pqc unsupported: charon holds the kernel XFRM socket and policy, blocking a second instance."
-    print_shared_header
+    traffic_header
     has_vm_config tls  && { prefix_run "tls/classical"  tls  classical & BGPIDS+=($!); }
     has_vm_config tls  && { prefix_run "tls/pqc"        tls  pqc       & BGPIDS+=($!); }
     has_vm_config mtls && { prefix_run "mtls/classical" mtls classical & BGPIDS+=($!); }
@@ -405,7 +396,7 @@ if [[ "$PROTO" == "all" && "$MODE" == "all" ]]; then
     has_vm_config ssh  && { prefix_run "ssh/pqc"        ssh  pqc       & BGPIDS+=($!); }
     [[ ${#BGPIDS[@]} -gt 0 ]] && wait "${BGPIDS[@]}" 2>/dev/null || true
 elif [[ "$PROTO" == "all" ]]; then
-    print_shared_header
+    traffic_header
     for proto in tls mtls dtls quic ipsec ssh; do
         [[ "$proto" == "dtls" && "$MODE" == "pqc" ]] && continue
         if ! has_vm_config "$proto"; then continue; fi
@@ -418,7 +409,7 @@ elif [[ "$MODE" == "all" && "$PROTO" == "dtls" ]]; then
     printf '\r\n'
     run_sequential dtls classical
 elif [[ "$MODE" == "all" ]]; then
-    print_shared_header
+    traffic_header
     prefix_run "${PROTO}/classical" "$PROTO" classical & BGPIDS+=($!)
     prefix_run "${PROTO}/pqc"       "$PROTO" pqc       & BGPIDS+=($!)
     wait "${BGPIDS[@]}" 2>/dev/null || true

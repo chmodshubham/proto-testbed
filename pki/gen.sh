@@ -269,20 +269,23 @@ gen_quic_classical() {
     log INFO "  Server cert: pki/out/quic/classical/server-cert.pem"
 }
 
-gen_ipsec_classical() {
-    local ca="${REPO_ROOT}/pki/out/ca/ipsec/classical"
-    local leaf="${REPO_ROOT}/pki/out/ipsec/classical"
+gen_ipsec() {
+    local mode="$1"
+    local label
+    [[ "$mode" == "pqc" ]] && label="PQC" || label="classical"
+    local ca="${REPO_ROOT}/pki/out/ca/ipsec/${mode}"
+    local leaf="${REPO_ROOT}/pki/out/ipsec/${mode}"
     local PKI="${REPO_ROOT}/os-lib/install/strongswan/bin/pki"
     mkdir -p "$ca" "$leaf"
 
-    log INFO "IPsec classical: generating CA (P-384) ..."
+    log INFO "IPsec ${label}: generating CA (P-384) ..."
     "$PKI" --gen --type ecdsa --size 384 --outform pem > "${ca}/ca-key.pem"
     "$PKI" --self --ca --lifetime 3650 \
         --in "${ca}/ca-key.pem" --type priv \
-        --dn "CN=Testbed IPsec Classical CA" \
+        --dn "CN=Testbed IPsec ${label} CA" \
         --outform pem > "${ca}/ca-cert.pem"
 
-    log INFO "IPsec classical: generating server leaf (P-256) ..."
+    log INFO "IPsec ${label}: generating server leaf (P-256) ..."
     "$PKI" --gen --type ecdsa --size 256 --outform pem > "${leaf}/server-key.pem"
     local csr
     csr="$(mktemp --suffix=.csr)"
@@ -298,7 +301,7 @@ gen_ipsec_classical() {
     rm -f "$csr"
     trap - RETURN
 
-    log INFO "IPsec classical: generating client leaf (P-256) ..."
+    log INFO "IPsec ${label}: generating client leaf (P-256) ..."
     "$PKI" --gen --type ecdsa --size 256 --outform pem > "${leaf}/client-key.pem"
     local csr2
     csr2="$(mktemp --suffix=.csr)"
@@ -314,62 +317,14 @@ gen_ipsec_classical() {
     rm -f "$csr2"
     trap - RETURN
 
-    log INFO "IPsec classical done."
-    log INFO "  CA cert:     pki/out/ca/ipsec/classical/ca-cert.pem"
-    log INFO "  Server cert: pki/out/ipsec/classical/server-cert.pem"
-    log INFO "  Client cert: pki/out/ipsec/classical/client-cert.pem"
+    log INFO "IPsec ${label} done."
+    log INFO "  CA cert:     pki/out/ca/ipsec/${mode}/ca-cert.pem"
+    log INFO "  Server cert: pki/out/ipsec/${mode}/server-cert.pem"
+    log INFO "  Client cert: pki/out/ipsec/${mode}/client-cert.pem"
 }
 
-gen_ipsec_pqc() {
-    local ca="${REPO_ROOT}/pki/out/ca/ipsec/pqc"
-    local leaf="${REPO_ROOT}/pki/out/ipsec/pqc"
-    local PKI="${REPO_ROOT}/os-lib/install/strongswan/bin/pki"
-    mkdir -p "$ca" "$leaf"
-
-    log INFO "IPsec PQC: generating CA (P-384) ..."
-    "$PKI" --gen --type ecdsa --size 384 --outform pem > "${ca}/ca-key.pem"
-    "$PKI" --self --ca --lifetime 3650 \
-        --in "${ca}/ca-key.pem" --type priv \
-        --dn "CN=Testbed IPsec PQC CA" \
-        --outform pem > "${ca}/ca-cert.pem"
-
-    log INFO "IPsec PQC: generating server leaf (P-256) ..."
-    "$PKI" --gen --type ecdsa --size 256 --outform pem > "${leaf}/server-key.pem"
-    local csr
-    csr="$(mktemp --suffix=.csr)"
-    trap 'rm -f "$csr"' RETURN
-    "$PKI" --req --type priv --in "${leaf}/server-key.pem" \
-        --dn "CN=${VM2_HOST}" --outform pem > "$csr"
-    "$PKI" --issue --lifetime 3650 \
-        --cacert "${ca}/ca-cert.pem" --cakey "${ca}/ca-key.pem" \
-        --in "$csr" --type pkcs10 \
-        --san "${VM2_IP}" --san "${VM2_HOST}" \
-        --flag serverAuth --flag ikeIntermediate \
-        --outform pem > "${leaf}/server-cert.pem"
-    rm -f "$csr"
-    trap - RETURN
-
-    log INFO "IPsec PQC: generating client leaf (P-256) ..."
-    "$PKI" --gen --type ecdsa --size 256 --outform pem > "${leaf}/client-key.pem"
-    local csr2
-    csr2="$(mktemp --suffix=.csr)"
-    trap 'rm -f "$csr2"' RETURN
-    "$PKI" --req --type priv --in "${leaf}/client-key.pem" \
-        --dn "CN=vm1" --outform pem > "$csr2"
-    "$PKI" --issue --lifetime 3650 \
-        --cacert "${ca}/ca-cert.pem" --cakey "${ca}/ca-key.pem" \
-        --in "$csr2" --type pkcs10 \
-        --san "${VM1_IP}" --san "vm1" \
-        --flag clientAuth \
-        --outform pem > "${leaf}/client-cert.pem"
-    rm -f "$csr2"
-    trap - RETURN
-
-    log INFO "IPsec PQC done."
-    log INFO "  CA cert:     pki/out/ca/ipsec/pqc/ca-cert.pem"
-    log INFO "  Server cert: pki/out/ipsec/pqc/server-cert.pem"
-    log INFO "  Client cert: pki/out/ipsec/pqc/client-cert.pem"
-}
+gen_ipsec_classical() { gen_ipsec classical; }
+gen_ipsec_pqc()       { gen_ipsec pqc; }
 
 gen_quic_pqc() {
     local ca="${REPO_ROOT}/pki/out/ca/quic/pqc"
@@ -384,33 +339,27 @@ gen_quic_pqc() {
     log INFO "  Server cert: pki/out/quic/pqc/server-cert.pem"
 }
 
-gen_ssh_classical() {
+gen_ssh() {
+    local mode="$1"
+    local label
+    [[ "$mode" == "pqc" ]] && label="PQC" || label="classical"
+    local suffix
+    [[ "$mode" == "pqc" ]] && suffix="-pqc" || suffix=""
     local SSHKEYGEN="${REPO_ROOT}/os-lib/install/openssh/bin/ssh-keygen"
-    local out="${REPO_ROOT}/pki/out/ssh/classical"
+    local out="${REPO_ROOT}/pki/out/ssh/${mode}"
     mkdir -p "$out"
-    log INFO "SSH classical: generating host key (ed25519) ..."
-    "$SSHKEYGEN" -t ed25519 -N "" -C "testbed-ssh-host" -f "${out}/host-key" -q
-    log INFO "SSH classical: generating client auth key (ed25519) ..."
-    "$SSHKEYGEN" -t ed25519 -N "" -C "testbed-ssh-client" -f "${out}/client-key" -q
+    log INFO "SSH ${label}: generating host key (ed25519) ..."
+    "$SSHKEYGEN" -t ed25519 -N "" -C "testbed-ssh-host${suffix}" -f "${out}/host-key" -q
+    log INFO "SSH ${label}: generating client auth key (ed25519) ..."
+    "$SSHKEYGEN" -t ed25519 -N "" -C "testbed-ssh-client${suffix}" -f "${out}/client-key" -q
     cp "${out}/client-key.pub" "${out}/authorized_keys"
-    log INFO "SSH classical done."
-    log INFO "  Host key:    pki/out/ssh/classical/host-key"
-    log INFO "  Client key:  pki/out/ssh/classical/client-key"
+    log INFO "SSH ${label} done."
+    log INFO "  Host key:    pki/out/ssh/${mode}/host-key"
+    log INFO "  Client key:  pki/out/ssh/${mode}/client-key"
 }
 
-gen_ssh_pqc() {
-    local SSHKEYGEN="${REPO_ROOT}/os-lib/install/openssh/bin/ssh-keygen"
-    local out="${REPO_ROOT}/pki/out/ssh/pqc"
-    mkdir -p "$out"
-    log INFO "SSH PQC: generating host key (ed25519) ..."
-    "$SSHKEYGEN" -t ed25519 -N "" -C "testbed-ssh-host-pqc" -f "${out}/host-key" -q
-    log INFO "SSH PQC: generating client auth key (ed25519) ..."
-    "$SSHKEYGEN" -t ed25519 -N "" -C "testbed-ssh-client-pqc" -f "${out}/client-key" -q
-    cp "${out}/client-key.pub" "${out}/authorized_keys"
-    log INFO "SSH PQC done."
-    log INFO "  Host key:    pki/out/ssh/pqc/host-key"
-    log INFO "  Client key:  pki/out/ssh/pqc/client-key"
-}
+gen_ssh_classical() { gen_ssh classical; }
+gen_ssh_pqc()       { gen_ssh pqc; }
 
 verify_certs() {
     log INFO "Verifying certificates ..."

@@ -239,6 +239,17 @@ kill_vm2_ports() {
 EOF
 }
 
+# tls_flags <mode> — set TLS_VER_FLAG and CIPHER_FLAG for the given mode.
+tls_flags() {
+    if [[ "$1" == "classical" ]]; then
+        TLS_VER_FLAG="-tls1_2"
+        CIPHER_FLAG="-cipher"
+    else
+        TLS_VER_FLAG="-tls1_3"
+        CIPHER_FLAG="-ciphersuites"
+    fi
+}
+
 # traffic_header — print column headers for the traffic table; suppressed when TESTBED_NO_HEADER=1
 traffic_header() {
     if [[ "${TESTBED_NO_HEADER:-0}" == "1" ]]; then

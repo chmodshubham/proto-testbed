@@ -17,15 +17,8 @@ BIND_IP="${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}"
 
 source "${REPO_ROOT}/protocols/mtls/config.sh"
 
-if [[ "$MODE" == "classical" ]]; then
-    TLS_VER_FLAG="-tls1_2"
-    CIPHER_FLAG="-cipher"
-    TLS_VER_LABEL="TLS 1.2 (mutual)"
-else
-    TLS_VER_FLAG="-tls1_3"
-    CIPHER_FLAG="-ciphersuites"
-    TLS_VER_LABEL="TLS 1.3 (mutual)"
-fi
+tls_flags "$MODE"
+TLS_VER_LABEL="$( [[ "$MODE" == "classical" ]] && printf 'TLS 1.2 (mutual)' || printf 'TLS 1.3 (mutual)' )"
 
 log INFO "Mode:               $MODE"
 log INFO "Listening on:       ${BIND_IP}:${MTLS_PORT}"
@@ -35,7 +28,7 @@ log INFO "Client CA:          ${CAFILE}"
 log INFO "KEX groups:         $MTLS_GROUPS"
 log INFO "Cipher suites:      $CIPHERS"
 log INFO "Signature algs:     $SIGALGS"
-echo ""
+printf '\n'
 
 exec "$OSSL" s_server \
     -accept "${BIND_IP}:${MTLS_PORT}" \

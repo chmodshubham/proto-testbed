@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# setup.sh — clone the repo and build all libraries on this VM.
+# lib-setup.sh — clone the repo and build all libraries on this VM.
 #
 # Usage (run as the testbed user, NOT root):
 #   bash setup.sh [--skip-openssl] [--skip-strongswan] [--skip-openssh]

@@ -31,7 +31,7 @@ log INFO "Certificate:        ${SERVER_CERT}"
 log INFO "KEX groups:         $QUIC_GROUPS"
 log INFO "Cipher suites:      $CIPHERS"
 log INFO "Signature algs:     $SIGALGS"
-echo ""
+printf '\n'
 
 cd "${REPO_ROOT}"
 exec "${QUIC_DIR}/server" "$MODE"

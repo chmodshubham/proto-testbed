@@ -15,6 +15,10 @@ resolve_vm_config tls
 
 MODE="${1:-classical}"
 
+source "${REPO_ROOT}/protocols/tls/config.sh"
+PROTO_TAG="tls/${MODE}"
+SERVER_IP="${NLB_HOST:-${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}}"
+
 _STOP=0
 cleanup() {
     _STOP=1
@@ -22,10 +26,6 @@ cleanup() {
         "pkill -f 's_server.*${TLS_PORT}' 2>/dev/null || true" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
-SERVER_IP="${NLB_HOST:-${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}}"
-
-source "${REPO_ROOT}/protocols/tls/config.sh"
-PROTO_TAG="tls/${MODE}"
 
 if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
     log INFO  "Mode:               $MODE"
@@ -51,13 +51,7 @@ check_vm1_reach "${TLS_PORT}" tls
 log_tty_state "before traffic_header"
 traffic_header
 
-if [[ "$MODE" == "classical" ]]; then
-    TLS_VER_FLAG="-tls1_2"
-    CIPHER_FLAG="-cipher"
-else
-    TLS_VER_FLAG="-tls1_3"
-    CIPHER_FLAG="-ciphersuites"
-fi
+tls_flags "$MODE"
 
 set +m
 COUNT=0

@@ -24,14 +24,14 @@ Minimum per VM:
 
 ## Protocol Support
 
-| Protocol       | PQC | KEX (PQC)              | Port (classical / PQC) | Transport |
-| -------------- | --- | ---------------------- | ---------------------- | --------- |
-| TLS 1.2 / 1.3  | Yes | X25519MLKEM768         | 4433 / 4434            | TCP       |
-| mTLS 1.2 / 1.3 | Yes | X25519MLKEM768         | 4435 / 4436            | TCP       |
-| DTLS 1.2       | No  | n/a                    | 4437                   | UDP       |
-| QUIC           | Yes | X25519MLKEM768         | 4438 / 4439            | UDP       |
-| IPsec          | Yes | ML-KEM-768 (ml plugin) | 4440 / 4441            | UDP       |
-| SSH            | Yes | mlkem768x25519-sha256  | 4442 / 4443            | TCP       |
+| Protocol       | PQC | KEX (PQC)                         | Port (classical / PQC) | Transport |
+| -------------- | --- | --------------------------------- | ---------------------- | --------- |
+| TLS 1.2 / 1.3  | Yes | X25519MLKEM768, SecP256r1MLKEM768 | 4433 / 4434            | TCP       |
+| mTLS 1.2 / 1.3 | Yes | X25519MLKEM768, SecP256r1MLKEM768 | 4435 / 4436            | TCP       |
+| DTLS 1.2       | No  | n/a                               | 4437                   | UDP       |
+| QUIC           | Yes | X25519MLKEM768                    | 4438 / 4439            | UDP       |
+| IPsec          | Yes | ML-KEM-768 (ml plugin)            | 4440 / 4441            | UDP       |
+| SSH            | Yes | mlkem768x25519-sha256             | 4442 / 4443            | TCP       |
 
 ## Setup
 
@@ -68,6 +68,8 @@ export TLS_VM2_PASSWORD=""                         # set only if password SSH is
 
 To point all protocols at the same VM pair, use identical values across all six prefixes. `VM2_REPO` must be an absolute path.
 
+Optionally, set `NLB_HOST` to a load balancer DNS name or IP that fronts vm2 for TLS, mTLS, and QUIC. When set, `run.sh` adds it to the server cert SAN and clients connect through it instead of directly to `VM2_IP`.
+
 Sync `env.sh` to vm2 after any change:
 
 ```bash
@@ -78,13 +80,21 @@ rsync -a env.sh "$TLS_VM2_USER@$TLS_VM2_HOST:$TLS_VM2_REPO/"
 
 `os-lib/` is gitignored. Each VM must build the libraries locally.
 
+Run the automated setup script (clones the repo if not already present, builds all libraries):
+
+```bash
+bash lib-setup.sh [--skip-openssl] [--skip-strongswan] [--skip-openssh]
+```
+
+Or build manually using the per-library guides:
+
 | Library    | Version | Build guide                              | Used by               |
 | ---------- | ------- | ---------------------------------------- | --------------------- |
 | OpenSSL    | 4.0     | [docs/openssl.md](docs/openssl.md)       | TLS, mTLS, DTLS, QUIC |
 | strongSwan | 6.0+    | [docs/strongswan.md](docs/strongswan.md) | IPsec                 |
 | OpenSSH    | 10.3p1  | [docs/openssh.md](docs/openssh.md)       | SSH                   |
 
-Skip libraries not needed (e.g. skip strongSwan if not running IPsec).
+Skip libraries not needed (e.g. `--skip-strongswan` if not running IPsec).
 
 ### 5. Run the testbed
 

@@ -15,6 +15,10 @@ resolve_vm_config mtls
 
 MODE="${1:-classical}"
 
+source "${REPO_ROOT}/protocols/mtls/config.sh"
+PROTO_TAG="mtls/${MODE}"
+SERVER_IP="${NLB_HOST:-${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}}"
+
 _STOP=0
 cleanup() {
     _STOP=1
@@ -22,10 +26,6 @@ cleanup() {
         "pkill -f 's_server.*${MTLS_PORT}' 2>/dev/null || true" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
-SERVER_IP="${NLB_HOST:-${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}}"
-
-source "${REPO_ROOT}/protocols/mtls/config.sh"
-PROTO_TAG="mtls/${MODE}"
 
 if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
     log INFO  "Mode:               $MODE"
@@ -49,13 +49,7 @@ EOF
 log_tty_state "after server start"
 wait_tcp "${MTLS_PORT}" "/tmp/mtls-server.log"
 check_vm1_reach "${MTLS_PORT}" mtls
-if [[ "$MODE" == "classical" ]]; then
-    TLS_VER_FLAG="-tls1_2"
-    CIPHER_FLAG="-cipher"
-else
-    TLS_VER_FLAG="-tls1_3"
-    CIPHER_FLAG="-ciphersuites"
-fi
+tls_flags "$MODE"
 
 log_tty_state "before traffic_header"
 traffic_header
