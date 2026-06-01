@@ -89,7 +89,7 @@ export SSH_VM2_PASSWORD=""
 # Client connect target for TLS/mTLS/QUIC. 
 # Empty: connect directly to VM2_IP.
 # Non-empty: connect to this address (e.g. an AWS NLB DNS name) that forwards to vm2.
-# When set, pki/gen.sh adds it to the server cert SAN. See docs/nlb-setup.md.
+# When set, pki/gen.sh adds it to the server cert SAN.
 export NLB_HOST=""
 
 # ---------------------------------------------------------------------------
