@@ -36,6 +36,7 @@ log INFO "Mode:               $MODE"
 log INFO "Listening on:       0.0.0.0:${SSH_PORT}"
 log INFO "Host key:           ${SSH_HOST_KEY}"
 log INFO "KEX algorithms:     ${SSH_KEX}"
+log INFO "Library:            $("$SSHD_BIN" -V 2>&1 | head -1 || true)"
 echo ""
 
 exec "$SSHD_BIN" -D -f "$SSHD_CONFIG" -e

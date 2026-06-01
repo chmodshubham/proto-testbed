@@ -30,6 +30,7 @@ log INFO "Certificate:        ${SERVER_CERT}"
 log INFO "KEX groups:         $DTLS_GROUPS"
 log INFO "Cipher suites:      $CIPHERS"
 log INFO "Signature algs:     $SIGALGS"
+log INFO "Library:            $("$OSSL" version | head -1 || true)"
 echo ""
 
 if [[ ! -x "${DTLS_DIR}/server" ]]; then

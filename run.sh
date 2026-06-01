@@ -378,12 +378,59 @@ prefix_run() {
     return $rc
 } 2>/dev/null
 
+# print_lib_info <proto> — print library versions used by proto before traffic starts.
+# For nginx-based (tls, quic): fetch from vm2 via SSH; show server+client libs.
+# For openssl-based (mtls, dtls): show openssl version (same lib for client and server).
+# For ipsec: show strongSwan version. For ssh: show OpenSSH version.
+print_lib_info() {
+    local proto="$1"
+    local ossl_ver nginx_ver bssl_ver swan_ver ssh_ver
+    # Ensure VM2 vars are set for protocols that need SSH to fetch server lib version.
+    case "$proto" in tls|quic)
+        [[ -n "${VM2_USER:-}" && -n "${VM2_HOST:-}" && -n "${VM2_REPO:-}" ]] \
+            || resolve_vm_config "$proto"
+        ;; esac
+    # Disable errexit/nounset inside this function so version queries never abort the run.
+    set +eu
+    case "$proto" in
+        tls|quic)
+            nginx_ver=$(ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
+                "${VM2_REPO}/os-lib/install/nginx/sbin/nginx -V 2>&1" \
+                | grep -oE 'nginx/[0-9.]+' | head -1 || true)
+            bssl_ver=$(ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
+                "${VM2_REPO}/os-lib/install/nginx/sbin/nginx -V 2>&1" \
+                | grep -oE 'boringssl-[0-9.]+' | head -1 | grep -oE '[0-9.]+' || true)
+            ossl_ver=$("$OSSL" version 2>/dev/null | grep -oE 'OpenSSL [0-9.]+' | head -1 || true)
+            log INFO "Library (server):   ${nginx_ver} + BoringSSL ${bssl_ver}"
+            log INFO "Library (client):   ${ossl_ver}"
+            ;;
+        mtls|dtls)
+            ossl_ver=$("$OSSL" version 2>/dev/null | grep -oE 'OpenSSL [0-9.]+' | head -1 || true)
+            log INFO "Library:            ${ossl_ver}"
+            ;;
+        ipsec)
+            local _swan="${REPO_ROOT}/os-lib/install/strongswan"
+            swan_ver=$(LD_LIBRARY_PATH="${_swan}/lib/ipsec" \
+                "${_swan}/sbin/swanctl" --version 2>&1 \
+                | grep -oE 'strongSwan [0-9.]+' | head -1 || true)
+            log INFO "Library:            ${swan_ver}"
+            ;;
+        ssh)
+            local _ssh="${REPO_ROOT}/os-lib/install/openssh/bin/ssh"
+            ssh_ver=$("$_ssh" -V 2>&1 | grep -oE 'OpenSSH_[0-9a-zA-Z.]+' | head -1 || true)
+            log INFO "Library:            ${ssh_ver}"
+            ;;
+    esac
+    set -eu
+}
+
 run_sequential() {
     local proto="$1" mode="$2"
     log INFO "================================================================"
     log INFO "Protocol: ${proto}  |  Mode: ${mode}"
     log INFO "================================================================"
     printf '\r\n'
+    print_lib_info "$proto"
     bash "${REPO_ROOT}/orchestrator/${proto}.sh" "$mode"
 }
 
@@ -395,6 +442,9 @@ run_sequential() {
 set +m
 if [[ "$PROTO" == "all" && "$MODE" == "all" ]]; then
     log INFO "IPsec: pqc mode only. Parallel classical+pqc unsupported: charon holds the kernel XFRM socket and policy, blocking a second instance."
+    for _lp in tls mtls dtls quic ipsec ssh; do
+        has_vm_config "$_lp" && { resolve_vm_config "$_lp"; print_lib_info "$_lp"; } || true
+    done
     traffic_header
     has_vm_config tls  && { prefix_run "tls/classical"  tls  classical & BGPIDS+=($!); }
     has_vm_config tls  && { prefix_run "tls/pqc"        tls  pqc       & BGPIDS+=($!); }
@@ -408,6 +458,10 @@ if [[ "$PROTO" == "all" && "$MODE" == "all" ]]; then
     has_vm_config ssh  && { prefix_run "ssh/pqc"        ssh  pqc       & BGPIDS+=($!); }
     [[ ${#BGPIDS[@]} -gt 0 ]] && wait "${BGPIDS[@]}" 2>/dev/null || true
 elif [[ "$PROTO" == "all" ]]; then
+    for _lp in tls mtls dtls quic ipsec ssh; do
+        [[ "$_lp" == "dtls" && "$MODE" == "pqc" ]] && continue
+        has_vm_config "$_lp" && { resolve_vm_config "$_lp"; print_lib_info "$_lp"; } || true
+    done
     traffic_header
     for proto in tls mtls dtls quic ipsec ssh; do
         [[ "$proto" == "dtls" && "$MODE" == "pqc" ]] && continue
@@ -421,6 +475,7 @@ elif [[ "$MODE" == "all" && "$PROTO" == "dtls" ]]; then
     printf '\r\n'
     run_sequential dtls classical
 elif [[ "$MODE" == "all" ]]; then
+    print_lib_info "$PROTO"
     traffic_header
     prefix_run "${PROTO}/classical" "$PROTO" classical & BGPIDS+=($!)
     prefix_run "${PROTO}/pqc"       "$PROTO" pqc       & BGPIDS+=($!)

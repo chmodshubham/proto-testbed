@@ -35,6 +35,7 @@ log INFO "Client CA:          ${CAFILE}"
 log INFO "KEX groups:         $MTLS_GROUPS"
 log INFO "Cipher suites:      $CIPHERS"
 log INFO "Signature algs:     $SIGALGS"
+log INFO "Library:            $("$OSSL" version | head -1 || true)"
 echo ""
 
 exec "$OSSL" s_server \

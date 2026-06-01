@@ -34,7 +34,6 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
     printf '\r\n'
     log INFO "Syncing PKI to ${VM2_HOST} ..."
 fi
-
 ssh_vm2 "${VM2_USER}@${VM2_HOST}" "mkdir -p ${VM2_REPO}/pki/out/ssh/${MODE}"
 rsync_vm2 -q \
     "${SSH_HOST_KEY}" \

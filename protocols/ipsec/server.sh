@@ -18,6 +18,7 @@ log INFO "Listening on:       ${VM2_IP}:${IPSEC_PORT} (UDP)"
 log INFO "IKE proposals:      $IPSEC_IKE_PROPOSALS"
 log INFO "ESP proposals:      $IPSEC_ESP_PROPOSALS"
 log INFO "CA certificate:     $IPSEC_CA"
+log INFO "Library:            $(${STRONGSWAN}/sbin/swanctl --version 2>&1 | head -1 || true)"
 echo ""
 
 VICI_SOCK="/tmp/charon-ipsec-${MODE}.vici"

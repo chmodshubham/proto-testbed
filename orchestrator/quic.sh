@@ -54,7 +54,6 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
     printf '\r\n'
     log INFO "Starting QUIC server (${MODE}) on ${VM2_HOST} ..."
 fi
-
 ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
     pidfile=/tmp/quic-nginx-${MODE}.pid
     if [[ -f "\$pidfile" ]]; then
