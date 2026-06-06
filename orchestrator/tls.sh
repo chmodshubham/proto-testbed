@@ -15,17 +15,10 @@ resolve_vm_config tls
 
 MODE="${1:-classical}"
 
+# Stopping traffic must NOT stop the server: the trap only breaks the traffic
+# loop. nginx stays up on vm2 until explicitly stopped (./nginx-server.sh stop).
 _STOP=0
-cleanup() {
-    _STOP=1
-    ssh_vm2 "${VM2_USER}@${VM2_HOST}" "
-        pidfile=/tmp/tls-nginx-${MODE}.pid
-        if [[ -f \"\$pidfile\" ]]; then
-            kill \"\$(cat \"\$pidfile\")\" 2>/dev/null || true
-        fi
-        pkill -f 'nginx.*tls-nginx-${MODE}' 2>/dev/null || true
-    " 2>/dev/null || true
-}
+cleanup() { _STOP=1; }
 trap cleanup EXIT INT TERM
 SERVER_IP="${NLB_HOST:-${VM2_IP:?VM2_IP not set. Source env.sh from repo root.}}"
 
@@ -42,16 +35,20 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
     printf '\r\n'
     log INFO  "Starting TLS server (${MODE}) on ${VM2_HOST} ..."
 fi
-ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
-    pidfile=/tmp/tls-nginx-${MODE}.pid
-    if [[ -f "\$pidfile" ]]; then
-        kill "\$(cat "\$pidfile")" 2>/dev/null || true
-        sleep 0.2
-    fi
-    cd ${VM2_REPO}
-    source env.sh
-    nohup bash protocols/tls/server.sh ${MODE} > /tmp/tls-server.log 2>&1 &
+if nginx_alive_vm2 tls "${MODE}"; then
+    log INFO "Reusing running TLS server (${MODE}) on ${VM2_HOST}."
+else
+    ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
+        pidfile=/tmp/tls-nginx-${MODE}.pid
+        if [[ -f "\$pidfile" ]]; then
+            kill "\$(cat "\$pidfile")" 2>/dev/null || true
+            sleep 0.2
+        fi
+        cd ${VM2_REPO}
+        source env.sh
+        nohup bash protocols/tls/server.sh ${MODE} > /tmp/tls-server.log 2>&1 &
 EOF
+fi
 
 log_tty_state "after server start"
 wait_tcp "${TLS_PORT}" "/tmp/tls-server-${MODE}.log"

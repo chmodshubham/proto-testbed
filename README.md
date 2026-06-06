@@ -114,13 +114,24 @@ Skip libraries not needed (e.g. `--skip-strongswan` if not running IPsec).
 ./run.sh --proto ipsec --mode pqc      # IPsec PQC only (two modes cannot run in parallel)
 ```
 
-`run.sh` auto-generates missing PKI, syncs the repo to vm2, starts servers, and loops traffic. Press **Ctrl-C** to stop.
+`run.sh` auto-generates missing PKI, syncs the repo to vm2, starts servers, and loops traffic. Press **Ctrl-C** to stop the traffic loop.
+
+The **nginx server (TLS / QUIC) is persistent**: it stays running on vm2 after the traffic loop stops, and is reused on the next run instead of being restarted. Stop it explicitly with:
+
+```bash
+./nginx-server.sh stop   --proto tls   # stop both modes
+./nginx-server.sh status --proto quic  # UP/DOWN per mode
+./nginx-server.sh start  --proto tls --mode pqc
+```
+
+Other servers (mTLS, DTLS, IPsec, SSH) are still torn down when `run.sh` exits.
 
 Notes:
 
 - DTLS has no PQC mode (DTLS 1.2; ML-KEM requires TLS 1.3).
 - IPsec cannot run classical and PQC in parallel (charon holds the kernel XFRM socket).
 - If `VM2_PASSWORD` is set, install `sshpass` on vm1 first: `sudo apt-get install -y sshpass`.
+- After regenerating PKI/certs for TLS or QUIC, run `./nginx-server.sh stop` first so the next run starts with the new cert.
 
 ## Output
 

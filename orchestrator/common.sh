@@ -249,6 +249,17 @@ kill_vm2_ports() {
 EOF
 }
 
+# nginx_alive_vm2 <proto> <mode> — exit 0 if the pidfile process is running on vm2.
+# Used to reuse a persistent server instead of restarting it on every run.
+# Note: passes -n so ssh does not read this caller's stdin (would EOF a while-read loop).
+nginx_alive_vm2() {
+    local proto="$1" mode="$2"
+    ssh_vm2 -n "${VM2_USER}@${VM2_HOST}" "
+        pf=/tmp/${proto}-nginx-${mode}.pid
+        [[ -f \"\$pf\" ]] && kill -0 \"\$(cat \"\$pf\")\" 2>/dev/null
+    " 2>/dev/null
+}
+
 # traffic_header — print column headers for the traffic table; suppressed when TESTBED_NO_HEADER=1
 traffic_header() {
     if [[ "${TESTBED_NO_HEADER:-0}" == "1" ]]; then

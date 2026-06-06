@@ -28,17 +28,10 @@ if [[ "$SERVER_IP" =~ [a-zA-Z] ]]; then
 fi
 export VM2_IP="$SERVER_IP"
 
+# Stopping traffic must NOT stop the server: the trap only breaks the traffic
+# loop. nginx stays up on vm2 until explicitly stopped (./nginx-server.sh stop).
 _STOP=0
-cleanup() {
-    _STOP=1
-    ssh_vm2 "${VM2_USER}@${VM2_HOST}" "
-        pidfile=/tmp/quic-nginx-${MODE}.pid
-        if [[ -f \"\$pidfile\" ]]; then
-            kill \"\$(cat \"\$pidfile\")\" 2>/dev/null || true
-        fi
-        pkill -f 'nginx.*quic-nginx-${MODE}' 2>/dev/null || true
-    " 2>/dev/null || true
-}
+cleanup() { _STOP=1; }
 trap cleanup EXIT INT TERM
 
 source "${REPO_ROOT}/protocols/quic/config.sh"
@@ -54,17 +47,21 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
     printf '\r\n'
     log INFO "Starting QUIC server (${MODE}) on ${VM2_HOST} ..."
 fi
-ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
-    pidfile=/tmp/quic-nginx-${MODE}.pid
-    if [[ -f "\$pidfile" ]]; then
-        kill "\$(cat "\$pidfile")" 2>/dev/null || true
-        sleep 0.2
-    fi
-    pkill -f 'nginx.*quic-nginx-${MODE}' 2>/dev/null || true
-    cd ${VM2_REPO}
-    source env.sh
-    nohup bash protocols/quic/server.sh ${MODE} > /tmp/quic-server-${MODE}.log 2>&1 &
+if nginx_alive_vm2 quic "${MODE}"; then
+    log INFO "Reusing running QUIC server (${MODE}) on ${VM2_HOST}."
+else
+    ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
+        pidfile=/tmp/quic-nginx-${MODE}.pid
+        if [[ -f "\$pidfile" ]]; then
+            kill "\$(cat "\$pidfile")" 2>/dev/null || true
+            sleep 0.2
+        fi
+        pkill -f 'nginx.*quic-nginx-${MODE}' 2>/dev/null || true
+        cd ${VM2_REPO}
+        source env.sh
+        nohup bash protocols/quic/server.sh ${MODE} > /tmp/quic-server-${MODE}.log 2>&1 &
 EOF
+fi
 
 wait_proc "quic-nginx-${MODE}" "/tmp/quic-server-${MODE}.log"
 log_tty_state "before traffic_header"

@@ -28,6 +28,14 @@ Install on **both VMs**:
 
 Each connection prints one row: timestamp, connection number, KEX group, cipher suite, verify code. `Verify: 0` means the handshake and certificate validation succeeded.
 
+The nginx server stays running on vm2 after Ctrl-C and is reused on the next run. Manage it explicitly:
+
+```bash
+./nginx-server.sh status --proto tls            # UP/DOWN per mode
+./nginx-server.sh stop   --proto tls            # stop both modes (do this after regenerating certs)
+./nginx-server.sh start  --proto tls --mode pqc
+```
+
 ## Run the orchestrator directly
 
 `run.sh` is the recommended entry point. Running the orchestrator directly skips dependency installs, PKI generation, and the vm2 sync, so you have to do those steps manually first.

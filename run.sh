@@ -273,8 +273,31 @@ prepare_proto() {
         fi
     fi
 
-    log INFO "Clearing stale servers on ${VM2_HOST} (${proto}) ..."
-    kill_vm2_ports "${proto}"
+    # nginx (tls/quic) is persistent across runs: reuse live servers instead of
+    # killing them here. Resolve MODE=all to both modes, and only clear when no
+    # server for any intended mode is alive (truly stale state).
+    if [[ "$proto" == "tls" || "$proto" == "quic" ]]; then
+        local _modes_to_check=()
+        case "$MODE" in
+            classical) _modes_to_check=(classical) ;;
+            pqc)       _modes_to_check=(pqc) ;;
+            all)       _modes_to_check=(classical pqc) ;;
+        esac
+        local _any_alive=0 _m
+        for _m in "${_modes_to_check[@]}"; do
+            if nginx_alive_vm2 "$proto" "$_m"; then
+                log INFO "Reusing persistent ${proto}/${_m} server on ${VM2_HOST}."
+                _any_alive=1
+            fi
+        done
+        if [[ $_any_alive -eq 0 ]]; then
+            log INFO "Clearing stale servers on ${VM2_HOST} (${proto}) ..."
+            kill_vm2_ports "${proto}"
+        fi
+    else
+        log INFO "Clearing stale servers on ${VM2_HOST} (${proto}) ..."
+        kill_vm2_ports "${proto}"
+    fi
     PREPARED_PROTOS+=("$proto")
 }
 
@@ -335,8 +358,11 @@ cleanup() {
     fi
     # Belt-and-suspenders: for each prepared protocol, resolve its vm2 and kill any
     # servers the orchestrator traps may have missed on that protocol's ports.
+    # nginx (tls/quic) is persistent: leave it running on vm2 after a run ends.
+    # Stop it explicitly with ./nginx-server.sh stop --proto tls|quic.
     local cp
     for cp in "${PREPARED_PROTOS[@]}"; do
+        [[ "$cp" == "tls" || "$cp" == "quic" ]] && continue
         resolve_vm_config "$cp"
         kill_vm2_ports "$cp"
     done

@@ -94,6 +94,18 @@ bash lib-setup.sh --skip-boringssl     # skip BoringSSL (must already be built)
 bash lib-setup.sh --skip-nginx         # skip nginx
 ```
 
+## Server lifecycle
+
+nginx is **persistent** on vm2: once started it stays running across traffic runs and after the traffic loop is stopped with Ctrl-C. `run.sh` reuses a live server instead of restarting it. Manage it with `nginx-server.sh` from the repo root:
+
+```bash
+./nginx-server.sh start  --proto tls|quic --mode classical|pqc
+./nginx-server.sh stop   --proto tls|quic        # both modes
+./nginx-server.sh status --proto tls|quic        # UP/DOWN per mode
+```
+
+There is no crash auto-restart; a server that dies while idle stays down until the next run or an explicit `start`.
+
 ## Next
 
 | Protocol | Guide                                                   |

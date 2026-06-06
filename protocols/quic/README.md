@@ -32,6 +32,14 @@ The QUIC server is nginx built against BoringSSL with HTTP/3 support (`--with-ht
 
 Each connection prints one row: timestamp, connection number, KEX group, cipher suite, verify code. `Verify: 0` means certificate validation succeeded.
 
+The nginx server stays running on vm2 after Ctrl-C and is reused on the next run. Manage it explicitly:
+
+```bash
+./nginx-server.sh status --proto quic            # UP/DOWN per mode
+./nginx-server.sh stop   --proto quic            # stop both modes (do this after regenerating certs)
+./nginx-server.sh start  --proto quic --mode pqc
+```
+
 ## Run the orchestrator directly
 
 `run.sh` is the recommended entry point. Running the orchestrator directly skips dependency installs, PKI generation, the vm2 sync, and the client build, so you have to do those steps manually first.
