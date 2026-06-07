@@ -66,7 +66,6 @@ EOF
 fi
 
 wait_proc "quic-nginx-${MODE}" "/tmp/quic-server-${MODE}.log"
-check_backend quic
 log_tty_state "before traffic_header"
 traffic_header
 

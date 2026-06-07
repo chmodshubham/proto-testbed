@@ -262,6 +262,7 @@ prepare_proto() {
             log ERROR "Build it on the server (vm2): bash env-setup.sh"
             exit 1
         fi
+        check_backend "$proto"
     fi
 
     log INFO "Syncing repo to ${VM2_USER}@${VM2_HOST}:${VM2_REPO} (${proto}) ..."
