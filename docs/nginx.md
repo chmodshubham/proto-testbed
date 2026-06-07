@@ -86,12 +86,12 @@ Must print a line containing `BoringSSL`. If not, re-run Step 3.
 
 ## Automated setup
 
-`lib-setup.sh` performs all steps above automatically, including skip guards:
+`env-setup.sh` performs all steps above automatically, including skip guards:
 
 ```bash
-bash lib-setup.sh                      # build everything
-bash lib-setup.sh --skip-boringssl     # skip BoringSSL (must already be built)
-bash lib-setup.sh --skip-nginx         # skip nginx
+bash env-setup.sh                      # build everything
+bash env-setup.sh --skip-boringssl     # skip BoringSSL (must already be built)
+bash env-setup.sh --skip-nginx         # skip nginx
 ```
 
 ## Server lifecycle

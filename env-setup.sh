@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# lib-setup.sh — clone the repo and build all libraries on this VM.
+# env-setup.sh — clone the repo and build all libraries on this VM.
 #
 # Usage (run as the testbed user, NOT root):
-#   bash lib-setup.sh [--skip-openssl] [--skip-strongswan] [--skip-openssh] [--skip-boringssl] [--skip-nginx]
+#   bash env-setup.sh [--skip-openssl] [--skip-strongswan] [--skip-openssh] [--skip-boringssl] [--skip-nginx]
 #
 # All libraries install into <repo>/os-lib/install/. Nothing touches system paths.
 # Run this on every VM that will participate in the testbed.
