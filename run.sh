@@ -114,7 +114,7 @@ if [[ $needs_openssl -eq 1 ]]; then
     OSSL="${REPO_ROOT}/os-lib/install/openssl-4.0/bin/openssl"
     if [[ ! -x "$OSSL" ]]; then
         log ERROR "OpenSSL 4.0 not found at: ${OSSL}"
-        log ERROR "Build it first: bash lib-setup.sh"
+        log ERROR "Build it first: bash env-setup.sh"
         exit 1
     fi
 fi

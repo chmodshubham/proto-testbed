@@ -17,7 +17,7 @@ NGINX="${REPO_ROOT}/os-lib/install/nginx/sbin/nginx"
 
 [[ -x "$NGINX" ]] || {
     log ERROR "nginx not found: ${NGINX}"
-    log ERROR "Run: bash lib-setup.sh  (or bash lib-setup.sh --skip-openssl --skip-strongswan --skip-openssh)"
+    log ERROR "Run: bash env-setup.sh  (or bash env-setup.sh --skip-openssl --skip-strongswan --skip-openssh)"
     exit 1
 }
 

@@ -83,7 +83,7 @@ rsync -a env.sh "$TLS_VM2_USER@$TLS_VM2_HOST:$TLS_VM2_REPO/"
 Run the automated setup script (clones the repo if not already present, builds all libraries):
 
 ```bash
-bash lib-setup.sh [--skip-openssl] [--skip-strongswan] [--skip-openssh]
+bash env-setup.sh [--skip-openssl] [--skip-strongswan] [--skip-openssh]
 ```
 
 Or build manually using the per-library guides:
