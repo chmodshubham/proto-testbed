@@ -3,7 +3,7 @@ OSSL_DIR  := $(REPO_ROOT)/os-lib/install/openssl-4.0
 
 CC      = gcc
 CFLAGS  = -Wall -Wextra -std=c11 -I$(OSSL_DIR)/include
-LDFLAGS = -L$(OSSL_DIR)/lib -lssl -lcrypto -Wl,-rpath,$(OSSL_DIR)/lib
+LDFLAGS = -L$(OSSL_DIR)/lib -lssl -lcrypto -lnghttp3 -Wl,-rpath,$(OSSL_DIR)/lib
 
 .PHONY: all clean
 

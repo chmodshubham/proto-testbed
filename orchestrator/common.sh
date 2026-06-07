@@ -121,7 +121,18 @@ resolve_vm_config() {
     VM2_REPO="${!v2repo:?${v2repo} not set. Set per-protocol VM vars in env.sh.}"
     local v2pass="${p}_VM2_PASSWORD"
     VM2_PASSWORD="${!v2pass:-}"
-    export VM1_IP VM2_IP VM2_USER VM2_HOST VM2_REPO VM2_PASSWORD
+    # Optional reverse-proxy backend (Option A). Empty when unset; both must be
+    # non-empty for the server to enable proxy mode. Numeric range check on PORT.
+    local v_phost="${p}_PROXY_HOST" v_pport="${p}_PROXY_PORT"
+    PROXY_HOST="${!v_phost:-}"
+    PROXY_PORT="${!v_pport:-}"
+    if [[ -n "$PROXY_PORT" ]]; then
+        if ! [[ "$PROXY_PORT" =~ ^[0-9]+$ ]] || (( PROXY_PORT < 1 || PROXY_PORT > 65535 )); then
+            log ERROR "${v_pport}='${PROXY_PORT}' is not a valid TCP port (1-65535)."
+            exit 1
+        fi
+    fi
+    export VM1_IP VM2_IP VM2_USER VM2_HOST VM2_REPO VM2_PASSWORD PROXY_HOST PROXY_PORT
     if [[ "$VM2_REPO" == "~"* ]]; then
         log ERROR "${v2repo} must be an absolute path (no tilde). Edit env.sh."
         exit 1
@@ -258,6 +269,18 @@ nginx_alive_vm2() {
         pf=/tmp/${proto}-nginx-${mode}.pid
         [[ -f \"\$pf\" ]] && kill -0 \"\$(cat \"\$pf\")\" 2>/dev/null
     " 2>/dev/null
+}
+
+# nginx_proxy_stale_vm2 <proto> <mode> — exit 0 if the proxy config in env.sh
+# differs from the stamp written when nginx last started. Callers that detect
+# staleness should kill the running server so it restarts with the new config.
+nginx_proxy_stale_vm2() {
+    local proto="$1" mode="$2"
+    local expected="${PROXY_HOST:-}:${PROXY_PORT:-}"
+    local stamp
+    stamp="$(ssh_vm2 -n "${VM2_USER}@${VM2_HOST}" \
+        "cat /tmp/${proto}-nginx-${mode}.proxy 2>/dev/null || true" 2>/dev/null || true)"
+    [[ "$stamp" != "$expected" ]]
 }
 
 # traffic_header — print column headers for the traffic table; suppressed when TESTBED_NO_HEADER=1

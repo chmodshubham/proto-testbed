@@ -132,6 +132,7 @@ Notes:
 - IPsec cannot run classical and PQC in parallel (charon holds the kernel XFRM socket).
 - If `VM2_PASSWORD` is set, install `sshpass` on vm1 first: `sudo apt-get install -y sshpass`.
 - After regenerating PKI/certs for TLS or QUIC, run `./nginx-server.sh stop` first so the next run starts with the new cert.
+- The TLS and QUIC servers support reverse proxy mode. Set `TLS_PROXY_HOST` + `TLS_PROXY_PORT` (or the QUIC equivalents) in `env.sh` to forward traffic to a backend; nginx restarts automatically when the vars change. See [protocols/tls/README.md](protocols/tls/README.md#reverse-proxy-optional) and [protocols/quic/README.md](protocols/quic/README.md#reverse-proxy-optional).
 
 ## Output
 

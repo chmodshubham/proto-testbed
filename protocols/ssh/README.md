@@ -74,17 +74,3 @@ Each connection prints one row: timestamp, connection number, KEX algorithm, cip
    bash orchestrator/ssh.sh classical
    bash orchestrator/ssh.sh pqc
    ```
-
-## Flags reference
-
-OpenSSH client flags used by `protocols/ssh/client.sh`:
-
-| Flag                          | Description                                  |
-| ----------------------------- | -------------------------------------------- |
-| `-p <port>`                   | Connect to non-default port                  |
-| `-i <key>`                    | Identity file for pubkey auth                |
-| `-o KexAlgorithms=<list>`     | Comma-separated KEX algorithm list           |
-| `-o StrictHostKeyChecking=no` | Skip known_hosts check (testbed only)        |
-| `-o BatchMode=yes`            | Disable interactive prompts                  |
-| `-v`                          | Verbose output (shows negotiated algorithms) |
-| `-Q kex`                      | List supported KEX algorithms                |

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # nginx-server.sh — manage the persistent nginx server on vm2 (TLS / QUIC).
 #
-# nginx now stays up on vm2 across traffic runs (see PLAN.md). run.sh no longer
-# tears it down. This is the explicit off switch and status check.
+# nginx persists on vm2 across traffic runs; this script is the
+# explicit lifecycle manager (start / stop / status).
 #
 # Usage:
 #   ./nginx-server.sh start  --proto tls|quic --mode classical|pqc
@@ -86,8 +86,17 @@ modes_to_use() {
 do_start() {
     [[ -n "$MODE" ]] || { log ERROR "start requires --mode classical|pqc."; exit 1; }
     if nginx_alive_vm2 "$PROTO" "$MODE"; then
-        log INFO "Reusing running ${PROTO} server (${MODE}) on ${VM2_HOST}."
-        return 0
+        if nginx_proxy_stale_vm2 "$PROTO" "$MODE"; then
+            log INFO "Proxy config changed — restarting ${PROTO} server (${MODE}) on ${VM2_HOST} ..."
+            ssh_vm2 -n "${VM2_USER}@${VM2_HOST}" "
+                pf=/tmp/${PROTO}-nginx-${MODE}.pid
+                [[ -f \"\$pf\" ]] && kill \"\$(cat \"\$pf\")\" 2>/dev/null || true
+            " 2>/dev/null || true
+            sleep 0.3
+        else
+            log INFO "Reusing running ${PROTO} server (${MODE}) on ${VM2_HOST}."
+            return 0
+        fi
     fi
     log INFO "Starting ${PROTO} server (${MODE}) on ${VM2_HOST} ..."
     ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1

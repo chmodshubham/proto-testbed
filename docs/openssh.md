@@ -22,8 +22,6 @@ mkdir -p os-lib/src && cd os-lib/src
 curl -LO https://cdn.openbsd.org/pub/OpenBSD/OpenSSH/portable/openssh-10.3p1.tar.gz
 tar xzf openssh-10.3p1.tar.gz && cd openssh-10.3p1
 
-# Self-contained install under os-lib/; system OpenSSL (3.x) for crypto;
-# PAM auth; seccomp privsep sandbox; /var/empty as privsep chroot.
 ./configure \
     --prefix="$(cd ../../.. && pwd)/os-lib/install/openssh" \
     --sysconfdir="$(cd ../../.. && pwd)/os-lib/install/openssh/etc" \

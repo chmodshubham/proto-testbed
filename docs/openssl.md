@@ -22,7 +22,6 @@ mkdir -p os-lib/src && cd os-lib/src
 curl -LO https://github.com/openssl/openssl/releases/download/openssl-4.0.0/openssl-4.0.0.tar.gz
 tar xzf openssl-4.0.0.tar.gz && cd openssl-4.0.0
 
-# Self-contained install under os-lib/; libdir pinned for env.sh LD_LIBRARY_PATH.
 ./Configure \
     --prefix="$(cd ../../.. && pwd)/os-lib/install/openssl-4.0" \
     --openssldir="$(cd ../../.. && pwd)/os-lib/install/openssl-4.0/ssl" \

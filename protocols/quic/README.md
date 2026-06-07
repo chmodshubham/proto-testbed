@@ -16,7 +16,15 @@ Install on **both VMs**:
 - OpenSSL 4.0: [docs/openssl.md](../../docs/openssl.md)
 - nginx (BoringSSL): [docs/nginx.md](../../docs/nginx.md)
 
-The QUIC client is a small C program ([`client.c`](client.c)) using OpenSSL 4.0's native QUIC API. `run.sh` builds it automatically; for the direct-orchestrator path, build it by hand on vm1.
+Install on **vm1** only (client build dependency):
+
+```bash
+sudo apt-get install -y libnghttp3-dev
+```
+
+`libnghttp3` is required by the QUIC C client to issue real HTTP/3 GET requests after the handshake. `run.sh` installs it automatically via `ensure_apt_deps`.
+
+The QUIC client is a small C program ([`client.c`](client.c)) using OpenSSL 4.0's native QUIC API and nghttp3. `run.sh` builds it automatically; for the direct-orchestrator path, build it by hand on vm1.
 
 The QUIC server is nginx built against BoringSSL with HTTP/3 support (`--with-http_v3_module`).
 
@@ -39,6 +47,18 @@ The nginx server stays running on vm2 after Ctrl-C and is reused on the next run
 ./nginx-server.sh stop   --proto quic            # stop both modes (do this after regenerating certs)
 ./nginx-server.sh start  --proto quic --mode pqc
 ```
+
+## Reverse proxy (optional)
+
+Set both `QUIC_PROXY_HOST` and `QUIC_PROXY_PORT` in `env.sh`. Edit `env.sh` only — shell-level exports are not forwarded to vm2.
+
+```bash
+# in env.sh:
+export QUIC_PROXY_HOST="<backend-ip>"
+export QUIC_PROXY_PORT="8080"
+```
+
+Run as usual. If the proxy vars changed since nginx last started, it restarts automatically. The QUIC client issues a real HTTP/3 `GET /` each iteration, so the proxy is exercised on every connection.
 
 ## Run the orchestrator directly
 

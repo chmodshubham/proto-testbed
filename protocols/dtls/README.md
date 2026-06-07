@@ -10,7 +10,7 @@ vm1 connects to a DTLS server running on vm2 in a loop. Each connection complete
 
 See the root [README.md](../../README.md) for VM setup, hardware, and per-protocol `env.sh` configuration. Install OpenSSL 4.0 on both VMs first per [docs/openssl.md](../../docs/openssl.md).
 
-`openssl s_server` cannot hold a persistent UDP socket for DTLS, so the server and client are small C programs ([`server.c`](server.c), [`client.c`](client.c)) built with the bundled Makefile. `run.sh` builds them automatically; for the direct-orchestrator path, build them by hand.
+The server and client are small C programs ([`server.c`](server.c), [`client.c`](client.c)) built with the bundled Makefile. `run.sh` builds them automatically; for the direct-orchestrator path, build them by hand.
 
 ## Run
 
@@ -20,7 +20,7 @@ See the root [README.md](../../README.md) for VM setup, hardware, and per-protoc
 ./run.sh --proto dtls --mode classical   # DTLS 1.2 with secp521r1 KEX
 ```
 
-Each connection prints one row: timestamp, connection number, KEX group, cipher suite, verify code. `Verify: 0` means certificate validation succeeded. After the handshake the client sends `PING` and the server replies `PONG`; the server log line `Data OK: PING received, sending PONG.` proves the encrypted DTLS record was decrypted on vm2.
+Each connection prints one row: timestamp, connection number, KEX group, cipher suite, verify code. `Verify: 0` means certificate validation succeeded. After the handshake the client sends `PING` and the server replies `PONG`.
 
 ## Run the orchestrator directly
 
@@ -68,7 +68,3 @@ Each connection prints one row: timestamp, connection number, KEX group, cipher 
    ```bash
    bash orchestrator/dtls.sh classical
    ```
-
-## Implementation notes
-
-The C server (`server.c`) binds a UDP socket via `BIO_new_dgram`, loops accepting connections, and stays resident. The C client (`client.c`) outputs one line per connection in the format the orchestrator parses. `openssl s_server` cannot replace this because it calls `recvfrom` without first binding the socket and exits immediately under DTLS.

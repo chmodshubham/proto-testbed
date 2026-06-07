@@ -31,7 +31,7 @@ sudo modprobe esp4 xfrm_user xfrm_algo
 
 `--mode all` is not supported: two `charon` instances cannot share the host kernel XFRM state. Run modes sequentially instead.
 
-Each connection prints one row: timestamp, connection number, IKE group, ESP cipher, verify code. `Verify: 0` means the IKE SA established AND a single ICMP echo to `${VM2_IP}` succeeded through the tunnel. Inspect `ip -s xfrm state` while the SA is up to confirm ESP byte/packet counters increase across the ping, proving ICMP traversed ESP rather than plaintext.
+Each connection prints one row: timestamp, connection number, IKE group, ESP cipher, verify code. `Verify: 0` means the IKE SA established and a single ICMP echo to `${VM2_IP}` succeeded through the tunnel.
 
 ## Run the orchestrator directly
 

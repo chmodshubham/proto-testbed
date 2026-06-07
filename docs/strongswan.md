@@ -20,7 +20,7 @@ sudo apt install -y build-essential pkg-config flex bison libssl-dev
 ```
 
 > [!IMPORTANT]
-> strongSwan must build against the system OpenSSL headers (3.x), not the local OpenSSL 4.0 install. Do not pass `--with-openssl-prefix` or point `PKG_CONFIG_PATH` at `os-lib/install/openssl-4.0/`. Building against 4.0 headers pulls in ML-KEM references the system runtime (3.x) cannot resolve, producing `creating KE payload failed` at runtime. The `ml` plugin provides ML-KEM-768 independently.
+> strongSwan must build against the system OpenSSL headers (3.x), not the local OpenSSL 4.0 install. Do not pass `--with-openssl-prefix` or point `PKG_CONFIG_PATH` at `os-lib/install/openssl-4.0/`. Building against 4.0 headers produces `creating KE payload failed` at runtime. The `ml` plugin provides ML-KEM-768 independently.
 
 ## Step 2: Download and build on both VMs
 
@@ -30,8 +30,6 @@ mkdir -p os-lib/src && cd os-lib/src
 curl -LO https://download.strongswan.org/strongswan-6.0.6.tar.gz
 tar xzf strongswan-6.0.6.tar.gz && cd strongswan-6.0.6
 
-# Self-contained install; minimal plugin set: IKEv2 + vici/swanctl/pki control plane,
-# openssl (system 3.x) for classical crypto, ml for ML-KEM-768, kernel-netlink for XFRM.
 ./configure \
     --prefix="$(cd ../../.. && pwd)/os-lib/install/strongswan" \
     --sysconfdir="$(cd ../../.. && pwd)/os-lib/install/strongswan/etc" \
@@ -47,7 +45,7 @@ make -j$(nproc) && make install
 cd ../../..
 ```
 
-## Step 4: Verify the PQ algorithm
+## Step 3: Verify the PQ algorithm
 
 ```bash
 os-lib/install/strongswan/sbin/swanctl --version
@@ -55,8 +53,7 @@ os-lib/install/strongswan/bin/pki      --version
 os-lib/install/strongswan/sbin/swanctl --list-algs | grep -i mlkem
 ```
 
-> [!NOTE]
-> All three must succeed; the last must show `ML_KEM_768`. If missing, the `ml` plugin did not build — re-run Step 2 and confirm `--enable-ml` was accepted by `configure`.
+All three must succeed; the last must show `ML_KEM_768`. If missing, re-run Step 2 and confirm `--enable-ml` was accepted by `configure`.
 
 ## Next
 

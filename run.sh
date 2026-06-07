@@ -159,6 +159,11 @@ case "$PROTO" in
         ;;
 esac
 case "$PROTO" in
+    quic|all)
+        ensure_apt_deps libnghttp3-dev
+        ;;
+esac
+case "$PROTO" in
     ipsec|all)
         ensure_apt_deps build-essential pkg-config flex bison libssl-dev
         ;;
@@ -286,8 +291,16 @@ prepare_proto() {
         local _any_alive=0 _m
         for _m in "${_modes_to_check[@]}"; do
             if nginx_alive_vm2 "$proto" "$_m"; then
-                log INFO "Reusing persistent ${proto}/${_m} server on ${VM2_HOST}."
-                _any_alive=1
+                if nginx_proxy_stale_vm2 "$proto" "$_m"; then
+                    log INFO "Proxy config changed for ${proto}/${_m} — restarting nginx ..."
+                    ssh_vm2 -n "${VM2_USER}@${VM2_HOST}" "
+                        pf=/tmp/${proto}-nginx-${_m}.pid
+                        [[ -f \"\$pf\" ]] && kill \"\$(cat \"\$pf\")\" 2>/dev/null || true
+                    " 2>/dev/null || true
+                else
+                    log INFO "Reusing persistent ${proto}/${_m} server on ${VM2_HOST}."
+                    _any_alive=1
+                fi
             fi
         done
         if [[ $_any_alive -eq 0 ]]; then
@@ -330,6 +343,7 @@ printf '\r\n'
 # ---------------------------------------------------------------------------
 
 BGPIDS=()
+BACKEND_PIDS=()
 _CLEANED=0
 
 cleanup() {
@@ -356,6 +370,9 @@ cleanup() {
         kill -KILL "${BGPIDS[@]}" 2>/dev/null || true
         { wait "${BGPIDS[@]}"; } 2>/dev/null || true
     fi
+    if [[ ${#BACKEND_PIDS[@]} -gt 0 ]]; then
+        kill "${BACKEND_PIDS[@]}" 2>/dev/null || true
+    fi
     # Belt-and-suspenders: for each prepared protocol, resolve its vm2 and kill any
     # servers the orchestrator traps may have missed on that protocol's ports.
     # nginx (tls/quic) is persistent: leave it running on vm2 after a run ends.
@@ -376,6 +393,33 @@ cleanup() {
 trap 'cleanup; exit 130' INT
 trap 'cleanup; exit 143' TERM
 trap 'cleanup' EXIT
+
+# start_backend_if_needed — when a TLS or QUIC proxy target equals the local
+# VM1_IP, launch a Python HTTP backend so nginx can forward traffic to it.
+# Deduplicates by port so --proto all only starts one instance per port.
+start_backend_if_needed() {
+    local started_ports=() proto_upper lower_p host_var port_var vm1_var h p v1 already sp
+    for proto_upper in TLS QUIC; do
+        lower_p="$(printf '%s' "$proto_upper" | tr '[:upper:]' '[:lower:]')"
+        [[ "$PROTO" != "$lower_p" && "$PROTO" != "all" ]] && continue
+        host_var="${proto_upper}_PROXY_HOST"
+        port_var="${proto_upper}_PROXY_PORT"
+        vm1_var="${proto_upper}_VM1_IP"
+        h="${!host_var:-}"; p="${!port_var:-}"; v1="${!vm1_var:-}"
+        [[ -z "$h" || -z "$p" || "$h" != "$v1" ]] && continue
+        already=0
+        if [[ ${#started_ports[@]} -gt 0 ]]; then
+            for sp in "${started_ports[@]}"; do [[ "$sp" == "$p" ]] && already=1; done
+        fi
+        [[ $already -eq 1 ]] && continue
+        log INFO "Starting HTTP backend on ${h}:${p} ..."
+        python3 -m http.server "$p" --bind "$h" --directory /tmp \
+            > "/tmp/backend-${p}.log" 2>&1 &
+        BACKEND_PIDS+=("$!")
+        started_ports+=("$p")
+        log INFO "HTTP backend started (log: /tmp/backend-${p}.log)"
+    done
+}
 
 # ---------------------------------------------------------------------------
 # Runner
@@ -465,6 +509,7 @@ run_sequential() {
 # Main
 # ---------------------------------------------------------------------------
 
+start_backend_if_needed
 set +m
 if [[ "$PROTO" == "all" && "$MODE" == "all" ]]; then
     log INFO "IPsec: pqc mode only. Parallel classical+pqc unsupported: charon holds the kernel XFRM socket and policy, blocking a second instance."

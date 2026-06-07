@@ -96,7 +96,7 @@ bash lib-setup.sh --skip-nginx         # skip nginx
 
 ## Server lifecycle
 
-nginx is **persistent** on vm2: once started it stays running across traffic runs and after the traffic loop is stopped with Ctrl-C. `run.sh` reuses a live server instead of restarting it. Manage it with `nginx-server.sh` from the repo root:
+nginx is persistent on vm2: once started it stays running across traffic runs. `run.sh` reuses a live server instead of restarting it. Manage it with `nginx-server.sh` from the repo root:
 
 ```bash
 ./nginx-server.sh start  --proto tls|quic --mode classical|pqc
@@ -105,6 +105,21 @@ nginx is **persistent** on vm2: once started it stays running across traffic run
 ```
 
 There is no crash auto-restart; a server that dies while idle stays down until the next run or an explicit `start`.
+
+## Reverse proxy mode
+
+The TLS and QUIC servers can forward traffic to a backend. nginx terminates TLS/QUIC and speaks plain HTTP/1.1 to the backend. Set both vars for a protocol in `env.sh` to enable it; leaving either empty falls back to a built-in 200 response.
+
+| Var               | Purpose                    |
+| ----------------- | -------------------------- |
+| `TLS_PROXY_HOST`  | backend hostname/IP        |
+| `TLS_PROXY_PORT`  | backend TCP port (1–65535) |
+| `QUIC_PROXY_HOST` | backend hostname/IP        |
+| `QUIC_PROXY_PORT` | backend TCP port (1–65535) |
+
+Edit `env.sh` only — shell-level exports are not forwarded to vm2. When the proxy vars change, `run.sh` and `nginx-server.sh start` detect the difference and restart nginx automatically.
+
+After regenerating certs, run `./nginx-server.sh stop --proto <tls|quic>` first — cert changes are not detected automatically.
 
 ## Next
 

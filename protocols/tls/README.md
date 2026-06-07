@@ -36,6 +36,18 @@ The nginx server stays running on vm2 after Ctrl-C and is reused on the next run
 ./nginx-server.sh start  --proto tls --mode pqc
 ```
 
+## Reverse proxy (optional)
+
+Set both `TLS_PROXY_HOST` and `TLS_PROXY_PORT` in `env.sh`. Edit `env.sh` only — shell-level exports are not forwarded to vm2.
+
+```bash
+# in env.sh:
+export TLS_PROXY_HOST="<backend-ip>"
+export TLS_PROXY_PORT="8080"
+```
+
+Run as usual. If the proxy vars changed since nginx last started, it restarts automatically. If the backend is unreachable, the client gets `502 Bad Gateway`.
+
 ## Run the orchestrator directly
 
 `run.sh` is the recommended entry point. Running the orchestrator directly skips dependency installs, PKI generation, and the vm2 sync, so you have to do those steps manually first.

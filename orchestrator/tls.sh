@@ -46,7 +46,7 @@ else
         fi
         cd ${VM2_REPO}
         source env.sh
-        nohup bash protocols/tls/server.sh ${MODE} > /tmp/tls-server.log 2>&1 &
+        nohup bash protocols/tls/server.sh ${MODE} > /tmp/tls-server-${MODE}.log 2>&1 &
 EOF
 fi
 

@@ -78,20 +78,3 @@ Each connection prints one row: timestamp, connection number, KEX group, cipher 
    bash orchestrator/mtls.sh classical
    bash orchestrator/mtls.sh pqc
    ```
-
-## Flags reference
-
-OpenSSL `s_server` / `s_client` flags used by `protocols/mtls/server.sh` and `client.sh`:
-
-| Flag              | Description                                        |
-| ----------------- | -------------------------------------------------- |
-| `-tls1_2`         | TLS 1.2 only (classical mode)                      |
-| `-tls1_3`         | TLS 1.3 only (PQC mode)                            |
-| `-cipher <list>`  | Colon-separated cipher suites (TLS 1.2, classical) |
-| `-ciphersuites`   | Colon-separated cipher suites (TLS 1.3, PQC)       |
-| `-groups <list>`  | Colon-separated KEX groups                         |
-| `-sigalgs <list>` | Colon-separated signature algorithms               |
-| `-Verify <depth>` | Require and verify client cert (server only)       |
-| `-cert / -key`    | Client certificate and key (client only)           |
-| `-WWW`            | HTTP-like GET mode (server)                        |
-| `-keylogfile`     | NSS keylog for Wireshark decryption                |
