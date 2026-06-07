@@ -39,54 +39,54 @@ export PATH="$(pwd)/os-lib/install/nginx/sbin${PATH:+:$PATH}"
 # PROTO is one of: TLS MTLS DTLS QUIC IPSEC SSH
 
 # TLS
-export TLS_VM1_IP="10.141.230.168"
-export TLS_VM2_IP="10.141.230.126"
+export TLS_VM1_IP=""
+export TLS_VM2_IP=""
 export TLS_VM2_USER=ubuntu
-export TLS_VM2_HOST="vm10"
+export TLS_VM2_HOST=""
 export TLS_VM2_REPO="/home/ubuntu/proto-testbed"
 export TLS_VM2_PASSWORD=""
-export TLS_PROXY_HOST="10.141.230.168"
-export TLS_PROXY_PORT="8080"
+export TLS_PROXY_HOST=""
+export TLS_PROXY_PORT=""
 
 # mTLS
-export MTLS_VM1_IP="10.141.230.168"
-export MTLS_VM2_IP="10.141.230.126"
+export MTLS_VM1_IP=""
+export MTLS_VM2_IP=""
 export MTLS_VM2_USER=ubuntu
-export MTLS_VM2_HOST="vm10"
+export MTLS_VM2_HOST=""
 export MTLS_VM2_REPO="/home/ubuntu/proto-testbed"
 export MTLS_VM2_PASSWORD=""
 
 # DTLS
-export DTLS_VM1_IP="10.141.230.168"
-export DTLS_VM2_IP="10.141.230.126"
+export DTLS_VM1_IP=""
+export DTLS_VM2_IP=""
 export DTLS_VM2_USER=ubuntu
-export DTLS_VM2_HOST="vm10"
+export DTLS_VM2_HOST=""
 export DTLS_VM2_REPO="/home/ubuntu/proto-testbed"
 export DTLS_VM2_PASSWORD=""
 
 # QUIC
-export QUIC_VM1_IP="10.141.230.168"
-export QUIC_VM2_IP="10.141.230.126"
+export QUIC_VM1_IP=""
+export QUIC_VM2_IP=""
 export QUIC_VM2_USER=ubuntu
-export QUIC_VM2_HOST="vm10"
+export QUIC_VM2_HOST=""
 export QUIC_VM2_REPO="/home/ubuntu/proto-testbed"
 export QUIC_VM2_PASSWORD=""
-export QUIC_PROXY_HOST="10.141.230.168"
-export QUIC_PROXY_PORT="8080"
+export QUIC_PROXY_HOST=""
+export QUIC_PROXY_PORT=""
 
 # IPsec
-export IPSEC_VM1_IP="10.141.230.168"
-export IPSEC_VM2_IP="10.141.230.126"
+export IPSEC_VM1_IP=""
+export IPSEC_VM2_IP=""
 export IPSEC_VM2_USER=ubuntu
-export IPSEC_VM2_HOST="vm10"
+export IPSEC_VM2_HOST=""
 export IPSEC_VM2_REPO="/home/ubuntu/proto-testbed"
 export IPSEC_VM2_PASSWORD=""
 
 # SSH
-export SSH_VM1_IP="10.141.230.168"
-export SSH_VM2_IP="10.141.230.126"
+export SSH_VM1_IP=""
+export SSH_VM2_IP=""
 export SSH_VM2_USER=ubuntu
-export SSH_VM2_HOST="vm10"
+export SSH_VM2_HOST=""
 export SSH_VM2_REPO="/home/ubuntu/proto-testbed"
 export SSH_VM2_PASSWORD=""
 
