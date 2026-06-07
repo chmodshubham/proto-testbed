@@ -10,7 +10,7 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/chmodshubham/proto-testbed.git"
-REPO_BRANCH="nginx-server"
+REPO_BRANCH="nginx-backend"
 REPO_DIR="proto-testbed"
 
 SKIP_OPENSSL=0
