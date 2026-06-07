@@ -36,7 +36,9 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
     log INFO  "Starting TLS server (${MODE}) on ${VM2_HOST} ..."
 fi
 if nginx_alive_vm2 tls "${MODE}"; then
-    log INFO "Reusing running TLS server (${MODE}) on ${VM2_HOST}."
+    if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
+        log INFO "Reusing running TLS server (${MODE}) on ${VM2_HOST}."
+    fi
 else
     ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
         pidfile=/tmp/tls-nginx-${MODE}.pid
@@ -53,6 +55,7 @@ fi
 log_tty_state "after server start"
 wait_tcp "${TLS_PORT}" "/tmp/tls-server-${MODE}.log"
 check_vm1_reach "${TLS_PORT}" tls
+check_backend tls
 log_tty_state "before traffic_header"
 traffic_header
 

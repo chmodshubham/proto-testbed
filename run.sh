@@ -96,32 +96,24 @@ esac
 # ---------------------------------------------------------------------------
 
 needs_openssl=0
-needs_nginx=0
 needs_strongswan=0
 needs_openssh=0
 
+# Note: nginx is NOT checked here. It runs only on vm2 (server side), never on
+# this host (vm1/client). Its presence is verified remotely in prepare_proto.
 case "$PROTO" in
-    tls)           needs_openssl=1; needs_nginx=1 ;;
+    tls)           needs_openssl=1 ;;
     mtls|dtls)     needs_openssl=1 ;;
-    quic)          needs_openssl=1; needs_nginx=1 ;;
+    quic)          needs_openssl=1 ;;
     ipsec)         needs_strongswan=1 ;;
     ssh)           needs_openssh=1 ;;
-    all)           needs_openssl=1; needs_nginx=1; needs_strongswan=1; needs_openssh=1 ;;
+    all)           needs_openssl=1; needs_strongswan=1; needs_openssh=1 ;;
 esac
 
 if [[ $needs_openssl -eq 1 ]]; then
     OSSL="${REPO_ROOT}/os-lib/install/openssl-4.0/bin/openssl"
     if [[ ! -x "$OSSL" ]]; then
         log ERROR "OpenSSL 4.0 not found at: ${OSSL}"
-        log ERROR "Build it first: bash lib-setup.sh"
-        exit 1
-    fi
-fi
-
-if [[ $needs_nginx -eq 1 ]]; then
-    NGINX_CHK="${REPO_ROOT}/os-lib/install/nginx/sbin/nginx"
-    if [[ ! -x "$NGINX_CHK" ]]; then
-        log ERROR "nginx not found at: ${NGINX_CHK}"
         log ERROR "Build it first: bash lib-setup.sh"
         exit 1
     fi
@@ -259,6 +251,18 @@ prepare_proto() {
     local proto="$1"
     resolve_vm_config "$proto"
     ensure_pki "$proto"
+
+    # nginx (tls/quic) runs on vm2, not this host. Verify the binary exists there
+    # before syncing/starting, so a missing server-side build fails with a clear
+    # message instead of an opaque startup error later.
+    if [[ "$proto" == "tls" || "$proto" == "quic" ]]; then
+        if ! ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
+                "[[ -x '${VM2_REPO}/os-lib/install/nginx/sbin/nginx' ]]" 2>/dev/null; then
+            log ERROR "nginx not found on ${VM2_HOST}: ${VM2_REPO}/os-lib/install/nginx/sbin/nginx"
+            log ERROR "Build it on the server (vm2): bash env-setup.sh"
+            exit 1
+        fi
+    fi
 
     log INFO "Syncing repo to ${VM2_USER}@${VM2_HOST}:${VM2_REPO} (${proto}) ..."
     rsync_vm2 -a --delete \
@@ -415,9 +419,25 @@ start_backend_if_needed() {
         log INFO "Starting HTTP backend on ${h}:${p} ..."
         python3 -m http.server "$p" --bind "$h" --directory /tmp \
             > "/tmp/backend-${p}.log" 2>&1 &
-        BACKEND_PIDS+=("$!")
+        local bpid=$!
+        BACKEND_PIDS+=("$bpid")
         started_ports+=("$p")
-        log INFO "HTTP backend started (log: /tmp/backend-${p}.log)"
+        # Confirm the backend actually bound the port. http.server with `&` returns
+        # a pid even when the bind fails (port busy, perm); poll so a dead backend
+        # surfaces here instead of as opaque nginx 502s during the traffic loop.
+        local up=0 i
+        for i in {1..20}; do
+            if ! kill -0 "$bpid" 2>/dev/null; then break; fi   # process already died
+            if timeout 1 bash -c "</dev/tcp/${h}/${p}" 2>/dev/null; then up=1; break; fi
+            sleep 0.25
+        done
+        if [[ $up -eq 1 ]]; then
+            log INFO "HTTP backend up on ${h}:${p} (log: /tmp/backend-${p}.log)"
+        else
+            log ERROR "HTTP backend FAILED to start on ${h}:${p}. Last log lines:"
+            tail -n 5 "/tmp/backend-${p}.log" 2>/dev/null | while IFS= read -r _ln; do log ERROR "  ${_ln}"; done
+            log ERROR "nginx will return 502 for ${proto_upper} until the backend is up."
+        fi
     done
 }
 

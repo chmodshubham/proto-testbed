@@ -48,7 +48,9 @@ if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
     log INFO "Starting QUIC server (${MODE}) on ${VM2_HOST} ..."
 fi
 if nginx_alive_vm2 quic "${MODE}"; then
-    log INFO "Reusing running QUIC server (${MODE}) on ${VM2_HOST}."
+    if [[ "${TESTBED_NO_HEADER:-0}" != "1" ]]; then
+        log INFO "Reusing running QUIC server (${MODE}) on ${VM2_HOST}."
+    fi
 else
     ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
         pidfile=/tmp/quic-nginx-${MODE}.pid
@@ -64,6 +66,7 @@ EOF
 fi
 
 wait_proc "quic-nginx-${MODE}" "/tmp/quic-server-${MODE}.log"
+check_backend quic
 log_tty_state "before traffic_header"
 traffic_header
 

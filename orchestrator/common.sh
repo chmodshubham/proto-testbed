@@ -173,6 +173,27 @@ check_vm1_reach() {
     fi
 }
 
+# check_backend <proto> — when proxy mode is on (PROXY_HOST/PROXY_PORT set), verify
+# that nginx on vm2 can open a TCP connection to the proxy backend. nginx connects
+# to the backend, not vm1, so the probe runs from vm2 via SSH. Non-fatal: logs a
+# clear warning if the backend is down so 502s are diagnosable, but does not abort
+# the run (the handshake/traffic loop is still worth observing). No-op when proxy
+# mode is off. Honors TESTBED_SKIP_REACH=1 to skip.
+check_backend() {
+    local proto="$1"
+    [[ "${TESTBED_SKIP_REACH:-0}" == "1" ]] && return 0
+    [[ -z "${PROXY_HOST:-}" || -z "${PROXY_PORT:-}" ]] && return 0   # proxy mode off
+    local guard=""
+    [[ "${TESTBED_NO_HEADER:-0}" == "1" ]] && guard="[${proto}] "
+    if ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
+            "timeout 3 bash -c '</dev/tcp/${PROXY_HOST}/${PROXY_PORT}'" 2>/dev/null; then
+        log INFO "${guard}Backend reachable from ${VM2_HOST}: ${PROXY_HOST}:${PROXY_PORT}/tcp."
+    else
+        log ERROR "${guard}Backend UNREACHABLE from ${VM2_HOST}: ${PROXY_HOST}:${PROXY_PORT}/tcp."
+        log ERROR "${guard}nginx will return 502. Check the backend is running and vm2 firewall allows ${PROXY_PORT}/tcp."
+    fi
+}
+
 # wait_proc <pattern> <logfile> — poll until process matching pattern exists on vm2, or exit 1
 wait_proc() {
     local pattern="$1" logfile="$2"
