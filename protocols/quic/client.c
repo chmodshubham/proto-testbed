@@ -115,8 +115,32 @@ static int cb_deferred_consume(nghttp3_conn *c, int64_t sid, size_t consumed,
     return 0;
 }
 
-/* Send HTTP/3 GET on the existing QUIC connection. Returns 0 on success. */
+static const char POST_BODY[] =
+    "{\"deptName\":\"TestDept-quic\",\"headOfDept\":\"TestHead\","
+    "\"budgetCode\":\"BC001\",\"location\":\"Lab\"}";
+static size_t g_body_sent = 0;
+
+static nghttp3_ssize cb_read_data(nghttp3_conn *conn, int64_t stream_id,
+                                   nghttp3_vec *vec, size_t veccnt,
+                                   uint32_t *pflags,
+                                   void *conn_user_data, void *stream_user_data) {
+    (void)conn; (void)stream_id; (void)veccnt;
+    (void)conn_user_data; (void)stream_user_data;
+    size_t remaining = sizeof(POST_BODY) - 1 - g_body_sent;
+    if (remaining == 0) {
+        *pflags |= NGHTTP3_DATA_FLAG_EOF;
+        return 0;
+    }
+    vec[0].base = (uint8_t *)(POST_BODY + g_body_sent);
+    vec[0].len  = remaining;
+    g_body_sent = sizeof(POST_BODY) - 1;
+    *pflags |= NGHTTP3_DATA_FLAG_EOF;
+    return 1;
+}
+
+/* Send HTTP/3 POST on the existing QUIC connection. Returns 0 on success. */
 static int h3_get(SSL *conn_ssl, const char *authority, const char *path) {
+    g_body_sent = 0;
     SSL_set_blocking_mode(conn_ssl, 0);
 
     nghttp3_settings settings;
@@ -168,18 +192,23 @@ static int h3_get(SSL *conn_ssl, const char *authority, const char *path) {
     g_req_sid = SSL_get_stream_id(s_req);
     track(g_req_sid, s_req);
 
+    char cl_str[16];
+    snprintf(cl_str, sizeof(cl_str), "%zu", sizeof(POST_BODY) - 1);
     nghttp3_nv nva[] = {
-        {(uint8_t *)":method",    (uint8_t *)"GET",                 7, 3,  NGHTTP3_NV_FLAG_NONE},
-        {(uint8_t *)":scheme",    (uint8_t *)"https",               7, 5,  NGHTTP3_NV_FLAG_NONE},
-        {(uint8_t *)":authority", (uint8_t *)authority,            10, strlen(authority),
-                                                                        NGHTTP3_NV_FLAG_NONE},
-        {(uint8_t *)":path",      (uint8_t *)path,                  5, strlen(path),
-                                                                        NGHTTP3_NV_FLAG_NONE},
-        {(uint8_t *)"user-agent", (uint8_t *)"proto-testbed/1.0",  10, 17, NGHTTP3_NV_FLAG_NONE},
+        {(uint8_t *)":method",       (uint8_t *)"POST",              7,  4,  NGHTTP3_NV_FLAG_NONE},
+        {(uint8_t *)":scheme",       (uint8_t *)"https",             7,  5,  NGHTTP3_NV_FLAG_NONE},
+        {(uint8_t *)":authority",    (uint8_t *)authority,          10,  strlen(authority),
+                                                                          NGHTTP3_NV_FLAG_NONE},
+        {(uint8_t *)":path",         (uint8_t *)path,                5,  strlen(path),
+                                                                          NGHTTP3_NV_FLAG_NONE},
+        {(uint8_t *)"user-agent",    (uint8_t *)"proto-testbed/1.0",10, 17,  NGHTTP3_NV_FLAG_NONE},
+        {(uint8_t *)"content-type",  (uint8_t *)"application/json", 12, 16,  NGHTTP3_NV_FLAG_NONE},
+        {(uint8_t *)"content-length",(uint8_t *)cl_str,             14,  strlen(cl_str),
+                                                                          NGHTTP3_NV_FLAG_NONE},
     };
-    /* dr=NULL implicitly ends the request stream (no body). */
+    nghttp3_data_reader dr = { cb_read_data };
     if (nghttp3_conn_submit_request(h3, g_req_sid, nva,
-                                    sizeof(nva) / sizeof(nva[0]), NULL, NULL) != 0) {
+                                    sizeof(nva) / sizeof(nva[0]), &dr, NULL) != 0) {
         fprintf(stderr, "[ERROR] nghttp3_conn_submit_request failed\n");
         nghttp3_conn_del(h3);
         return 1;
@@ -365,7 +394,7 @@ int main(int argc, char *argv[]) {
         printf("HTTP/3 status: %d (body %zu bytes)\n", g_h3_status, g_h3_body);
         fflush(stdout);
     } else {
-        fprintf(stderr, "[WARN] HTTP/3 GET did not complete within deadline.\n");
+        fprintf(stderr, "[WARN] HTTP/3 POST did not complete within deadline.\n");
     }
 
     sleep(1);

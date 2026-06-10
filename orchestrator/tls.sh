@@ -64,7 +64,8 @@ set +m
 COUNT=0
 while [[ $_STOP -eq 0 ]]; do
     log_tty_state "loop top (#$((COUNT + 1)))"
-    RESULT=$({ printf 'GET / HTTP/1.0\r\nHost: %s\r\n\r\n' "${SERVER_IP}"; sleep 2; } 2>/dev/null | \
+    POST_BODY='{"deptName":"TestDept-tls","headOfDept":"TestHead","budgetCode":"BC001","location":"Lab"}'
+    RESULT=$({ printf 'POST / HTTP/1.0\r\nHost: %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s' "${SERVER_IP}" "${#POST_BODY}" "${POST_BODY}"; sleep 2; } 2>/dev/null | \
         timeout 10 "$OSSL" s_client \
             -connect "${SERVER_IP}:${TLS_PORT}" \
             -CAfile  "$CAFILE" \
