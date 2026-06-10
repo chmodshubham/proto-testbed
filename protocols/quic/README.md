@@ -50,12 +50,11 @@ The nginx server stays running on vm2 after Ctrl-C and is reused on the next run
 
 ## Reverse proxy (optional)
 
-Set both `QUIC_PROXY_HOST` and `QUIC_PROXY_PORT` in `env.sh`. Edit `env.sh` only — shell-level exports are not forwarded to vm2.
+Set `QUIC_BACKEND_URL` in `env.sh`. Edit `env.sh` only — shell-level exports are not forwarded to vm2.
 
 ```bash
 # in env.sh:
-export QUIC_PROXY_HOST="<backend-ip>"
-export QUIC_PROXY_PORT="8080"
+export QUIC_BACKEND_URL="http://<backend-ip>:8080/api/path"
 ```
 
 Run as usual. If the proxy vars changed since nginx last started, it restarts automatically. The QUIC client issues a real HTTP/3 `GET /` each iteration, so the proxy is exercised on every connection.

@@ -38,12 +38,11 @@ The nginx server stays running on vm2 after Ctrl-C and is reused on the next run
 
 ## Reverse proxy (optional)
 
-Set both `TLS_PROXY_HOST` and `TLS_PROXY_PORT` in `env.sh`. Edit `env.sh` only — shell-level exports are not forwarded to vm2.
+Set `TLS_BACKEND_URL` in `env.sh`. Edit `env.sh` only — shell-level exports are not forwarded to vm2.
 
 ```bash
 # in env.sh:
-export TLS_PROXY_HOST="<backend-ip>"
-export TLS_PROXY_PORT="8080"
+export TLS_BACKEND_URL="http://<backend-ip>:8080/api/path"
 ```
 
 Run as usual. If the proxy vars changed since nginx last started, it restarts automatically. If the backend is unreachable, the client gets `502 Bad Gateway`.

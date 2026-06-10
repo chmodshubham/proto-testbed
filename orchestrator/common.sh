@@ -121,18 +121,11 @@ resolve_vm_config() {
     VM2_REPO="${!v2repo:?${v2repo} not set. Set per-protocol VM vars in env.sh.}"
     local v2pass="${p}_VM2_PASSWORD"
     VM2_PASSWORD="${!v2pass:-}"
-    # Optional reverse-proxy backend (Option A). Empty when unset; both must be
-    # non-empty for the server to enable proxy mode. Numeric range check on PORT.
-    local v_phost="${p}_PROXY_HOST" v_pport="${p}_PROXY_PORT"
-    PROXY_HOST="${!v_phost:-}"
-    PROXY_PORT="${!v_pport:-}"
-    if [[ -n "$PROXY_PORT" ]]; then
-        if ! [[ "$PROXY_PORT" =~ ^[0-9]+$ ]] || (( PROXY_PORT < 1 || PROXY_PORT > 65535 )); then
-            log ERROR "${v_pport}='${PROXY_PORT}' is not a valid TCP port (1-65535)."
-            exit 1
-        fi
-    fi
-    export VM1_IP VM2_IP VM2_USER VM2_HOST VM2_REPO VM2_PASSWORD PROXY_HOST PROXY_PORT
+    # Optional reverse-proxy backend URL, per protocol.
+    # Set TLS_BACKEND_URL or QUIC_BACKEND_URL in env.sh; empty disables proxy mode.
+    local v_burl="${p}_BACKEND_URL"
+    PROXY_URL="${!v_burl:-}"
+    export VM1_IP VM2_IP VM2_USER VM2_HOST VM2_REPO VM2_PASSWORD PROXY_URL
     if [[ "$VM2_REPO" == "~"* ]]; then
         log ERROR "${v2repo} must be an absolute path (no tilde). Edit env.sh."
         exit 1
@@ -173,7 +166,7 @@ check_vm1_reach() {
     fi
 }
 
-# check_backend <proto> — when proxy mode is on (PROXY_HOST/PROXY_PORT set), verify
+# check_backend <proto> — when proxy mode is on (BACKEND_URL set), verify
 # that nginx on vm2 can open a TCP connection to the proxy backend. nginx connects
 # to the backend, not vm1, so the probe runs from vm2 via SSH. Non-fatal: logs a
 # clear warning if the backend is down so 502s are diagnosable, but does not abort
@@ -182,15 +175,19 @@ check_vm1_reach() {
 check_backend() {
     local proto="$1"
     [[ "${TESTBED_SKIP_REACH:-0}" == "1" ]] && return 0
-    [[ -z "${PROXY_HOST:-}" || -z "${PROXY_PORT:-}" ]] && return 0   # proxy mode off
+    [[ -z "${PROXY_URL:-}" ]] && return 0   # proxy mode off
+    local _url="${PROXY_URL#*://}"          # strip scheme
+    local _hostport="${_url%%/*}"           # host:port (before first /)
+    local _bhost="${_hostport%:*}"
+    local _bport="${_hostport##*:}"
     local guard=""
     [[ "${TESTBED_NO_HEADER:-0}" == "1" ]] && guard="[${proto}] "
     if ssh_vm2 "${VM2_USER}@${VM2_HOST}" \
-            "timeout 3 bash -c '</dev/tcp/${PROXY_HOST}/${PROXY_PORT}'" 2>/dev/null; then
-        log INFO "${guard}Backend reachable from ${VM2_HOST}: ${PROXY_HOST}:${PROXY_PORT}/tcp."
+            "timeout 3 bash -c '</dev/tcp/${_bhost}/${_bport}'" 2>/dev/null; then
+        log INFO "${guard}Backend reachable from ${VM2_HOST}: ${_bhost}:${_bport}/tcp."
     else
-        log ERROR "${guard}Backend UNREACHABLE from ${VM2_HOST}: ${PROXY_HOST}:${PROXY_PORT}/tcp."
-        log ERROR "${guard}nginx will return 502. Check the backend is running and vm2 firewall allows ${PROXY_PORT}/tcp."
+        log ERROR "${guard}Backend UNREACHABLE from ${VM2_HOST}: ${_bhost}:${_bport}/tcp."
+        log ERROR "${guard}nginx will return 502. Check the backend is running and vm2 firewall allows ${_bport}/tcp."
     fi
 }
 
@@ -297,7 +294,7 @@ nginx_alive_vm2() {
 # staleness should kill the running server so it restarts with the new config.
 nginx_proxy_stale_vm2() {
     local proto="$1" mode="$2"
-    local expected="${PROXY_HOST:-}:${PROXY_PORT:-}"
+    local expected="${PROXY_URL:-}"
     local stamp
     stamp="$(ssh_vm2 -n "${VM2_USER}@${VM2_HOST}" \
         "cat ${VM2_REPO}/os-lib/install/nginx/conf/${proto}-nginx-${mode}.proxy 2>/dev/null || true" 2>/dev/null || true)"

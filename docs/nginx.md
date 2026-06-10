@@ -108,16 +108,14 @@ There is no crash auto-restart; a server that dies while idle stays down until t
 
 ## Reverse proxy mode
 
-The TLS and QUIC servers can forward traffic to a backend. nginx terminates TLS/QUIC and speaks plain HTTP/1.1 to the backend. Set both vars for a protocol in `env.sh` to enable it; leaving either empty falls back to a built-in 200 response.
+The TLS and QUIC servers can forward traffic to a backend. nginx terminates TLS/QUIC and speaks plain HTTP/1.1 to the backend. Set the URL for a protocol in `env.sh` to enable it; leaving it empty falls back to a built-in 200 response.
 
-| Var               | Purpose                    |
-| ----------------- | -------------------------- |
-| `TLS_PROXY_HOST`  | backend hostname/IP        |
-| `TLS_PROXY_PORT`  | backend TCP port (1–65535) |
-| `QUIC_PROXY_HOST` | backend hostname/IP        |
-| `QUIC_PROXY_PORT` | backend TCP port (1–65535) |
+| Var                | Purpose                                                  |
+| ------------------ | -------------------------------------------------------- |
+| `TLS_BACKEND_URL`  | full backend URL for TLS (e.g. `http://host:port/path`)  |
+| `QUIC_BACKEND_URL` | full backend URL for QUIC (e.g. `http://host:port/path`) |
 
-Edit `env.sh` only — shell-level exports are not forwarded to vm2. When the proxy vars change, `run.sh` and `nginx-server.sh start` detect the difference and restart nginx automatically.
+Edit `env.sh` only — shell-level exports are not forwarded to vm2. When the proxy URL changes, `run.sh` and `nginx-server.sh start` detect the difference and restart nginx automatically.
 
 After regenerating certs, run `./nginx-server.sh stop --proto <tls|quic>` first — cert changes are not detected automatically.
 

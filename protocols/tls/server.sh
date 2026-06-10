@@ -51,12 +51,11 @@ else
     SSL_CIPHERS_LINE=""
 fi
 
-# Reverse-proxy backend (Option A): both PROXY_HOST and PROXY_PORT must be set.
+# Reverse-proxy backend: set TLS_BACKEND_URL in env.sh to enable proxy mode.
 # Otherwise fall back to the built-in literal-200 response.
-if [[ -n "${PROXY_HOST:-}" && -n "${PROXY_PORT:-}" ]]; then
-    PROXY_TARGET="${PROXY_HOST}:${PROXY_PORT}"
-    log INFO "Proxy target:       ${PROXY_TARGET}"
-    LOCATION_BLOCK=$'        location / {\n            proxy_pass http://'"${PROXY_TARGET}"$';\n            proxy_set_header Host $host;\n            proxy_set_header X-Real-IP $remote_addr;\n            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n            proxy_set_header X-Forwarded-Proto $scheme;\n            proxy_http_version 1.1;\n        }'
+if [[ -n "${PROXY_URL:-}" ]]; then
+    log INFO "Proxy target:       ${PROXY_URL}"
+    LOCATION_BLOCK=$'        location / {\n            proxy_pass '"${PROXY_URL}"$';\n            proxy_set_header Host $host;\n            proxy_set_header X-Real-IP $remote_addr;\n            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n            proxy_set_header X-Forwarded-Proto $scheme;\n            proxy_http_version 1.1;\n        }'
 else
     log INFO "Proxy target:       (none — fallback 200 response)"
     LOCATION_BLOCK=$'        location / {\n            return 200 "I am fine, client!\\n";\n            add_header Content-Type text/plain;\n        }'
@@ -92,5 +91,5 @@ CONF
 
 "$NGINX" -t -c "$NGINX_CONF"
 log INFO "Config test passed. Starting nginx ..."
-printf '%s:%s' "${PROXY_HOST:-}" "${PROXY_PORT:-}" > "${NGINX_PREFIX}/conf/tls-nginx-${MODE}.proxy"
+printf '%s' "${PROXY_URL:-}" > "${NGINX_PREFIX}/conf/tls-nginx-${MODE}.proxy"
 exec "$NGINX" -c "$NGINX_CONF" -g "daemon off;"

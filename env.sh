@@ -45,9 +45,7 @@ export TLS_VM2_USER=ubuntu
 export TLS_VM2_HOST=""
 export TLS_VM2_REPO="/home/ubuntu/proto-testbed"
 export TLS_VM2_PASSWORD=""
-export TLS_PROXY_HOST=""
-export TLS_PROXY_PORT=""
-
+export TLS_BACKEND_URL=""
 # mTLS
 export MTLS_VM1_IP=""
 export MTLS_VM2_IP=""
@@ -71,9 +69,7 @@ export QUIC_VM2_USER=ubuntu
 export QUIC_VM2_HOST=""
 export QUIC_VM2_REPO="/home/ubuntu/proto-testbed"
 export QUIC_VM2_PASSWORD=""
-export QUIC_PROXY_HOST=""
-export QUIC_PROXY_PORT=""
-
+export QUIC_BACKEND_URL=""
 # IPsec
 export IPSEC_VM1_IP=""
 export IPSEC_VM2_IP=""
@@ -95,6 +91,7 @@ export SSH_VM2_PASSWORD=""
 # Non-empty: connect to this address (e.g. an AWS NLB DNS name) that forwards to vm2.
 # When set, pki/gen.sh adds it to the server cert SAN.
 export NLB_HOST=""
+
 
 
 # ---------------------------------------------------------------------------

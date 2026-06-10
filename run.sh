@@ -399,44 +399,44 @@ trap 'cleanup; exit 130' INT
 trap 'cleanup; exit 143' TERM
 trap 'cleanup' EXIT
 
-# start_backend_if_needed — when a TLS or QUIC proxy target equals the local
-# VM1_IP, launch a Python HTTP backend so nginx can forward traffic to it.
-# Deduplicates by port so --proto all only starts one instance per port.
+# start_backend_if_needed — when TLS_BACKEND_URL or QUIC_BACKEND_URL points to
+# vm1 itself, launch a Python HTTP backend so nginx can forward traffic to it locally.
+# Deduplicates by port so identical URLs in both protocols start only one instance.
 start_backend_if_needed() {
-    local started_ports=() proto_upper lower_p host_var port_var vm1_var h p v1 already sp
+    local started_ports=() proto_upper burl_var v1_var _url _hostport _bhost _bport _v1 already sp
     for proto_upper in TLS QUIC; do
-        lower_p="$(printf '%s' "$proto_upper" | tr '[:upper:]' '[:lower:]')"
+        local lower_p; lower_p="$(printf '%s' "$proto_upper" | tr '[:upper:]' '[:lower:]')"
         [[ "$PROTO" != "$lower_p" && "$PROTO" != "all" ]] && continue
-        host_var="${proto_upper}_PROXY_HOST"
-        port_var="${proto_upper}_PROXY_PORT"
-        vm1_var="${proto_upper}_VM1_IP"
-        h="${!host_var:-}"; p="${!port_var:-}"; v1="${!vm1_var:-}"
-        [[ -z "$h" || -z "$p" || "$h" != "$v1" ]] && continue
+        burl_var="${proto_upper}_BACKEND_URL"
+        v1_var="${proto_upper}_VM1_IP"
+        local _raw="${!burl_var:-}"
+        [[ -z "$_raw" ]] && continue
+        _url="${_raw#*://}"
+        _hostport="${_url%%/*}"
+        _bhost="${_hostport%:*}"
+        _bport="${_hostport##*:}"
+        _v1="${!v1_var:-}"
+        [[ -z "$_bhost" || -z "$_bport" || "$_bhost" != "$_v1" ]] && continue
         already=0
-        if [[ ${#started_ports[@]} -gt 0 ]]; then
-            for sp in "${started_ports[@]}"; do [[ "$sp" == "$p" ]] && already=1; done
-        fi
+        for sp in "${started_ports[@]+"${started_ports[@]}"}"; do [[ "$sp" == "$_bport" ]] && already=1; done
         [[ $already -eq 1 ]] && continue
-        log INFO "Starting HTTP backend on ${h}:${p} ..."
-        python3 -m http.server "$p" --bind "$h" --directory /tmp \
-            > "/tmp/backend-${p}.log" 2>&1 &
+        log INFO "Starting HTTP backend on ${_bhost}:${_bport} ..."
+        python3 -m http.server "$_bport" --bind "$_bhost" --directory /tmp \
+            > "/tmp/backend-${_bport}.log" 2>&1 &
         local bpid=$!
         BACKEND_PIDS+=("$bpid")
-        started_ports+=("$p")
-        # Confirm the backend actually bound the port. http.server with `&` returns
-        # a pid even when the bind fails (port busy, perm); poll so a dead backend
-        # surfaces here instead of as opaque nginx 502s during the traffic loop.
+        started_ports+=("$_bport")
         local up=0 i
         for i in {1..20}; do
-            if ! kill -0 "$bpid" 2>/dev/null; then break; fi   # process already died
-            if timeout 1 bash -c "</dev/tcp/${h}/${p}" 2>/dev/null; then up=1; break; fi
+            if ! kill -0 "$bpid" 2>/dev/null; then break; fi
+            if timeout 1 bash -c "</dev/tcp/${_bhost}/${_bport}" 2>/dev/null; then up=1; break; fi
             sleep 0.25
         done
         if [[ $up -eq 1 ]]; then
-            log INFO "HTTP backend up on ${h}:${p} (log: /tmp/backend-${p}.log)"
+            log INFO "HTTP backend up on ${_bhost}:${_bport} (log: /tmp/backend-${_bport}.log)"
         else
-            log ERROR "HTTP backend FAILED to start on ${h}:${p}. Last log lines:"
-            tail -n 5 "/tmp/backend-${p}.log" 2>/dev/null | while IFS= read -r _ln; do log ERROR "  ${_ln}"; done
+            log ERROR "HTTP backend FAILED to start on ${_bhost}:${_bport}. Last log lines:"
+            tail -n 5 "/tmp/backend-${_bport}.log" 2>/dev/null | while IFS= read -r _ln; do log ERROR "  ${_ln}"; done
             log ERROR "nginx will return 502 for ${proto_upper} until the backend is up."
         fi
     done
