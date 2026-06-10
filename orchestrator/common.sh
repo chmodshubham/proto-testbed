@@ -218,7 +218,7 @@ kill_vm2_ports() {
         source env.sh || exit 0
         case "${proto}" in
             tls)
-                for _pf in /tmp/tls-nginx-classical.pid /tmp/tls-nginx-pqc.pid; do
+                for _pf in ${VM2_REPO}/os-lib/install/nginx/logs/tls-nginx-classical.pid ${VM2_REPO}/os-lib/install/nginx/logs/tls-nginx-pqc.pid; do
                     [[ -f "\$_pf" ]] && kill "\$(cat "\$_pf")" 2>/dev/null || true
                 done
                 sudo fuser -k \${PORT_TLS}/tcp     > /dev/null 2>&1 || true
@@ -236,7 +236,7 @@ kill_vm2_ports() {
                 pkill -f "protocols/dtls/server" > /dev/null 2>&1 || true
                 ;;
             quic)
-                for _pf in /tmp/quic-nginx-classical.pid /tmp/quic-nginx-pqc.pid; do
+                for _pf in ${VM2_REPO}/os-lib/install/nginx/logs/quic-nginx-classical.pid ${VM2_REPO}/os-lib/install/nginx/logs/quic-nginx-pqc.pid; do
                     [[ -f "\$_pf" ]] && kill "\$(cat "\$_pf")" 2>/dev/null || true
                 done
                 sudo fuser -k \${PORT_QUIC}/udp     > /dev/null 2>&1 || true
@@ -259,8 +259,8 @@ kill_vm2_ports() {
                 pkill -f "sshd.*\${PORT_SSH_PQC}" > /dev/null 2>&1 || true
                 ;;
             all)
-                for _pf in /tmp/tls-nginx-classical.pid /tmp/tls-nginx-pqc.pid \
-                           /tmp/quic-nginx-classical.pid /tmp/quic-nginx-pqc.pid; do
+                for _pf in ${VM2_REPO}/os-lib/install/nginx/logs/tls-nginx-classical.pid ${VM2_REPO}/os-lib/install/nginx/logs/tls-nginx-pqc.pid \
+                           ${VM2_REPO}/os-lib/install/nginx/logs/quic-nginx-classical.pid ${VM2_REPO}/os-lib/install/nginx/logs/quic-nginx-pqc.pid; do
                     [[ -f "\$_pf" ]] && kill "\$(cat "\$_pf")" 2>/dev/null || true
                 done
                 pkill -f "nginx.*tls-nginx"      > /dev/null 2>&1 || true
@@ -287,7 +287,7 @@ EOF
 nginx_alive_vm2() {
     local proto="$1" mode="$2"
     ssh_vm2 -n "${VM2_USER}@${VM2_HOST}" "
-        pf=/tmp/${proto}-nginx-${mode}.pid
+        pf=${VM2_REPO}/os-lib/install/nginx/logs/${proto}-nginx-${mode}.pid
         [[ -f \"\$pf\" ]] && kill -0 \"\$(cat \"\$pf\")\" 2>/dev/null
     " 2>/dev/null
 }
@@ -300,7 +300,7 @@ nginx_proxy_stale_vm2() {
     local expected="${PROXY_HOST:-}:${PROXY_PORT:-}"
     local stamp
     stamp="$(ssh_vm2 -n "${VM2_USER}@${VM2_HOST}" \
-        "cat /tmp/${proto}-nginx-${mode}.proxy 2>/dev/null || true" 2>/dev/null || true)"
+        "cat ${VM2_REPO}/os-lib/install/nginx/conf/${proto}-nginx-${mode}.proxy 2>/dev/null || true" 2>/dev/null || true)"
     [[ "$stamp" != "$expected" ]]
 }
 

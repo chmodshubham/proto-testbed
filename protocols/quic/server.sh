@@ -29,9 +29,10 @@ source "${REPO_ROOT}/protocols/quic/config.sh"
     exit 1
 }
 
-NGINX_CONF="/tmp/quic-nginx-${MODE}.conf"
-NGINX_PID="/tmp/quic-nginx-${MODE}.pid"
-NGINX_ERROR_LOG="/tmp/quic-server-${MODE}.log"
+NGINX_PREFIX="${REPO_ROOT}/os-lib/install/nginx"
+NGINX_CONF="${NGINX_PREFIX}/conf/quic-nginx-${MODE}.conf"
+NGINX_PID="${NGINX_PREFIX}/logs/quic-nginx-${MODE}.pid"
+NGINX_ERROR_LOG="${NGINX_PREFIX}/logs/quic-server-${MODE}.log"
 
 log INFO "Mode:               $MODE"
 log INFO "Listening on:       ${BIND_IP}:${QUIC_PORT} (UDP)"
@@ -81,5 +82,5 @@ CONF
 
 "$NGINX" -t -c "$NGINX_CONF"
 log INFO "Config test passed. Starting nginx ..."
-printf '%s:%s' "${PROXY_HOST:-}" "${PROXY_PORT:-}" > "/tmp/quic-nginx-${MODE}.proxy"
+printf '%s:%s' "${PROXY_HOST:-}" "${PROXY_PORT:-}" > "${NGINX_PREFIX}/conf/quic-nginx-${MODE}.proxy"
 exec "$NGINX" -c "$NGINX_CONF" -g "daemon off;"

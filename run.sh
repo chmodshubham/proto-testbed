@@ -299,7 +299,7 @@ prepare_proto() {
                 if nginx_proxy_stale_vm2 "$proto" "$_m"; then
                     log INFO "Proxy config changed for ${proto}/${_m} — restarting nginx ..."
                     ssh_vm2 -n "${VM2_USER}@${VM2_HOST}" "
-                        pf=/tmp/${proto}-nginx-${_m}.pid
+                        pf=${VM2_REPO}/os-lib/install/nginx/logs/${proto}-nginx-${_m}.pid
                         [[ -f \"\$pf\" ]] && kill \"\$(cat \"\$pf\")\" 2>/dev/null || true
                     " 2>/dev/null || true
                 else

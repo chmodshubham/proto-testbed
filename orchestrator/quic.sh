@@ -53,7 +53,7 @@ if nginx_alive_vm2 quic "${MODE}"; then
     fi
 else
     ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
-        pidfile=/tmp/quic-nginx-${MODE}.pid
+        pidfile=${VM2_REPO}/os-lib/install/nginx/logs/quic-nginx-${MODE}.pid
         if [[ -f "\$pidfile" ]]; then
             kill "\$(cat "\$pidfile")" 2>/dev/null || true
             sleep 0.2
@@ -61,11 +61,11 @@ else
         pkill -f 'nginx.*quic-nginx-${MODE}' 2>/dev/null || true
         cd ${VM2_REPO}
         source env.sh
-        nohup bash protocols/quic/server.sh ${MODE} > /tmp/quic-server-${MODE}.log 2>&1 &
+        nohup bash protocols/quic/server.sh ${MODE} > ${VM2_REPO}/os-lib/install/nginx/logs/quic-server-${MODE}.log 2>&1 &
 EOF
 fi
 
-wait_proc "quic-nginx-${MODE}" "/tmp/quic-server-${MODE}.log"
+wait_proc "quic-nginx-${MODE}" "${VM2_REPO}/os-lib/install/nginx/logs/quic-server-${MODE}.log"
 log_tty_state "before traffic_header"
 traffic_header
 

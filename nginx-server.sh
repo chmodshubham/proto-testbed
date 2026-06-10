@@ -89,7 +89,7 @@ do_start() {
         if nginx_proxy_stale_vm2 "$PROTO" "$MODE"; then
             log INFO "Proxy config changed — restarting ${PROTO} server (${MODE}) on ${VM2_HOST} ..."
             ssh_vm2 -n "${VM2_USER}@${VM2_HOST}" "
-                pf=/tmp/${PROTO}-nginx-${MODE}.pid
+                pf=${VM2_REPO}/os-lib/install/nginx/logs/${PROTO}-nginx-${MODE}.pid
                 [[ -f \"\$pf\" ]] && kill \"\$(cat \"\$pf\")\" 2>/dev/null || true
             " 2>/dev/null || true
             sleep 0.3
@@ -102,12 +102,12 @@ do_start() {
     ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
         cd ${VM2_REPO}
         source env.sh
-        nohup bash protocols/${PROTO}/server.sh ${MODE} > /tmp/${PROTO}-server-${MODE}.log 2>&1 &
+        nohup bash protocols/${PROTO}/server.sh ${MODE} > ${VM2_REPO}/os-lib/install/nginx/logs/${PROTO}-server-${MODE}.log 2>&1 &
 EOF
     if nginx_alive_vm2 "$PROTO" "$MODE"; then
         log INFO "${PROTO} server (${MODE}) started on ${VM2_HOST}."
     else
-        log ERROR "${PROTO} server (${MODE}) did not start. Check /tmp/${PROTO}-server-${MODE}.log on ${VM2_HOST}."
+        log ERROR "${PROTO} server (${MODE}) did not start. Check ${VM2_REPO}/os-lib/install/nginx/logs/${PROTO}-server-${MODE}.log on ${VM2_HOST}."
         exit 1
     fi
 }
@@ -124,7 +124,7 @@ do_stop() {
         ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF 2>/dev/null || true
             cd "${VM2_REPO}" || exit 0
             source env.sh || exit 0
-            pf=/tmp/${PROTO}-nginx-${MODE}.pid
+            pf=${VM2_REPO}/os-lib/install/nginx/logs/${PROTO}-nginx-${MODE}.pid
             [[ -f "\$pf" ]] && kill "\$(cat "\$pf")" 2>/dev/null || true
             case "${PROTO}/${MODE}" in
                 tls/classical)  sudo fuser -k \${PORT_TLS}/tcp      > /dev/null 2>&1 || true ;;
@@ -144,7 +144,7 @@ do_status() {
     while read -r m; do
         if nginx_alive_vm2 "$PROTO" "$m"; then
             local pid
-            pid="$(ssh_vm2 -n "${VM2_USER}@${VM2_HOST}" "cat /tmp/${PROTO}-nginx-${m}.pid 2>/dev/null" 2>/dev/null || true)"
+            pid="$(ssh_vm2 -n "${VM2_USER}@${VM2_HOST}" "cat ${VM2_REPO}/os-lib/install/nginx/logs/${PROTO}-nginx-${m}.pid 2>/dev/null" 2>/dev/null || true)"
             log INFO "${PROTO}/${m}: UP (pid ${pid})"
         else
             log INFO "${PROTO}/${m}: DOWN"

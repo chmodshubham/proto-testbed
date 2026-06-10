@@ -41,19 +41,19 @@ if nginx_alive_vm2 tls "${MODE}"; then
     fi
 else
     ssh_vm2 "${VM2_USER}@${VM2_HOST}" bash <<EOF > /dev/null 2>&1
-        pidfile=/tmp/tls-nginx-${MODE}.pid
+        pidfile=${VM2_REPO}/os-lib/install/nginx/logs/tls-nginx-${MODE}.pid
         if [[ -f "\$pidfile" ]]; then
             kill "\$(cat "\$pidfile")" 2>/dev/null || true
             sleep 0.2
         fi
         cd ${VM2_REPO}
         source env.sh
-        nohup bash protocols/tls/server.sh ${MODE} > /tmp/tls-server-${MODE}.log 2>&1 &
+        nohup bash protocols/tls/server.sh ${MODE} > ${VM2_REPO}/os-lib/install/nginx/logs/tls-server-${MODE}.log 2>&1 &
 EOF
 fi
 
 log_tty_state "after server start"
-wait_tcp "${TLS_PORT}" "/tmp/tls-server-${MODE}.log"
+wait_tcp "${TLS_PORT}" "${VM2_REPO}/os-lib/install/nginx/logs/tls-server-${MODE}.log"
 check_vm1_reach "${TLS_PORT}" tls
 log_tty_state "before traffic_header"
 traffic_header

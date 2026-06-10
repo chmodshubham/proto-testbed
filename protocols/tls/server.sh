@@ -29,9 +29,10 @@ source "${REPO_ROOT}/protocols/tls/config.sh"
     exit 1
 }
 
-NGINX_CONF="/tmp/tls-nginx-${MODE}.conf"
-NGINX_PID="/tmp/tls-nginx-${MODE}.pid"
-NGINX_ERROR_LOG="/tmp/tls-server-${MODE}.log"
+NGINX_PREFIX="${REPO_ROOT}/os-lib/install/nginx"
+NGINX_CONF="${NGINX_PREFIX}/conf/tls-nginx-${MODE}.conf"
+NGINX_PID="${NGINX_PREFIX}/logs/tls-nginx-${MODE}.pid"
+NGINX_ERROR_LOG="${NGINX_PREFIX}/logs/tls-server-${MODE}.log"
 
 log INFO "Mode:               $MODE"
 log INFO "Listening on:       ${BIND_IP}:${TLS_PORT}"
@@ -91,5 +92,5 @@ CONF
 
 "$NGINX" -t -c "$NGINX_CONF"
 log INFO "Config test passed. Starting nginx ..."
-printf '%s:%s' "${PROXY_HOST:-}" "${PROXY_PORT:-}" > "/tmp/tls-nginx-${MODE}.proxy"
+printf '%s:%s' "${PROXY_HOST:-}" "${PROXY_PORT:-}" > "${NGINX_PREFIX}/conf/tls-nginx-${MODE}.proxy"
 exec "$NGINX" -c "$NGINX_CONF" -g "daemon off;"
